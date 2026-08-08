@@ -16,7 +16,7 @@ import { Plus, Pencil, Trash2, Search } from "lucide-react";
 // columns: [{key,label,money,render}]  fields: [{name,label,type,options,money,required}]
 export default function CrudResource({
   title, subtitle, endpoint, columns, fields, searchable = true,
-  canCreate = true, canEdit = true, canDelete = true, transform,
+  canCreate = true, canEdit = true, canDelete = true, transform, totalField,
 }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +87,16 @@ export default function CrudResource({
         <div className="relative mb-4 max-w-sm">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari..." className="pl-9" data-testid="crud-search" />
+        </div>
+      )}
+
+      {totalField && (
+        <div className="mb-4 bg-white rounded-xl border border-slate-200 shadow-sm p-4 inline-flex items-center gap-3" data-testid="crud-total">
+          <span className="text-xs uppercase tracking-wide font-medium text-slate-500">{totalField.label || "Total"}</span>
+          <span className="text-xl font-semibold font-mono-num text-sky-700">
+            {fmtIDR(rows.reduce((s, r) => s + Number(r[totalField.key] || 0), 0))}
+          </span>
+          <span className="text-xs text-slate-400">({rows.length} data)</span>
         </div>
       )}
 

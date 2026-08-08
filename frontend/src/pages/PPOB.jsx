@@ -20,6 +20,9 @@ export default function PPOB() {
   const load = () => { setLoading(true); api.get("/ppob").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
   useEffect(() => { load(); }, []);
 
+  const totalOmset = rows.reduce((s, r) => s + Number(r.price || 0), 0);
+  const totalLaba = rows.reduce((s, r) => s + Number(r.profit || 0), 0);
+
   const create = async () => {
     if (!form.customer_number || !form.price) return toast.error("Nomor & harga wajib");
     await api.post("/ppob", { ...form, nominal: Number(form.nominal), price: Number(form.price), cost: Number(form.cost) });
@@ -32,6 +35,16 @@ export default function PPOB() {
       <PageHeader title="PPOB" subtitle="Transaksi pulsa, token, paket data, BPJS, PDAM">
         <Button onClick={() => setOpen(true)} className="bg-sky-600 hover:bg-sky-700" data-testid="ppob-add-btn"><Plus className="w-4 h-4 mr-1.5" /> Transaksi Baru</Button>
       </PageHeader>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 max-w-xl">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-testid="ppob-total-omset">
+          <div className="text-xs uppercase tracking-wide font-medium text-slate-500">Total Omset PPOB</div>
+          <div className="text-2xl font-semibold font-mono-num text-sky-700 mt-1">{fmtIDR(totalOmset)}</div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-testid="ppob-total-laba">
+          <div className="text-xs uppercase tracking-wide font-medium text-slate-500">Total Laba PPOB</div>
+          <div className="text-2xl font-semibold font-mono-num text-green-600 mt-1">{fmtIDR(totalLaba)}</div>
+        </div>
+      </div>
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200"><tr>

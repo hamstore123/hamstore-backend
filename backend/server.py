@@ -1019,6 +1019,22 @@ async def mark_content_uploaded(cid: str, body: dict, user: dict = Depends(get_c
     return {"ok": True, "status": status}
 
 
+@api.put("/content-posts/{cid}/status")
+async def update_content_status(cid: str, body: dict, user: dict = Depends(get_current_user)):
+    post = await db.content_posts.find_one({"id": cid})
+    if not post:
+        raise HTTPException(404, "Not found")
+    status = body.get("status")
+    updates = {"status": status}
+    if status in ("upload", "uploaded"):
+        updates["status"] = "upload"
+        updates["actual_time"] = body.get("actual_time") or now_iso()
+        if body.get("link"):
+            updates["link"] = body.get("link")
+    await db.content_posts.update_one({"id": cid}, {"$set": updates})
+    return {"ok": True, "status": updates["status"]}
+
+
 @api.delete("/content-posts/{cid}")
 async def delete_content_post(cid: str, user: dict = Depends(get_current_user)):
     await db.content_posts.delete_one({"id": cid})

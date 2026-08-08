@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Store, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import logo from "@/assets/ham-logo.png";
 
 export default function Login() {
   const { login } = useAuth();
@@ -34,8 +35,8 @@ export default function Login() {
           style={{ backgroundImage: "url('https://images.unsplash.com/photo-1687197180710-b2b9484a3c5f?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200')" }}
         />
         <div className="relative z-10 text-white max-w-md">
-          <div className="w-14 h-14 rounded-2xl bg-sky-500 flex items-center justify-center mb-6">
-            <Store className="w-7 h-7" />
+          <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center mb-6 p-2">
+            <img src={logo} alt="HAM Store" className="w-full h-full object-contain" />
           </div>
           <h1 className="font-serif-display text-5xl leading-none mb-4">HAM Store<br />Management</h1>
           <p className="text-slate-300">Sistem manajemen toko HP terpadu — kasir, service, inventaris, keuangan, dan kinerja karyawan dalam satu tempat.</p>

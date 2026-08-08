@@ -9,6 +9,7 @@ export default function Expenses() {
       endpoint="/expenses"
       searchable={false}
       canEdit={false}
+      totalField={{ key: "amount", label: "Total Pengeluaran" }}
       columns={[
         { key: "date", label: "Tanggal", render: (r) => fmtDate(r.date) },
         { key: "category", label: "Kategori" },

@@ -7,15 +7,20 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 const PLATFORMS = ["tiktok", "instagram", "facebook", "youtube", "whatsapp"];
+// Content production pipeline
+const FLOW = ["konsep", "edited", "selesai_edit", "upload"];
+const FLOW_LABEL = { konsep: "Konsep", edited: "Edited", selesai_edit: "Selesai Edit", upload: "Upload" };
+const NEXT = { konsep: "edited", edited: "selesai_edit", selesai_edit: "upload" };
 
 export default function ContentSchedule() {
   const [rows, setRows] = useState([]);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("");
   const [form, setForm] = useState({ staff_id: "", platform: "tiktok", content_type: "post", title: "", target_time: "", link: "" });
 
   const load = () => { setLoading(true); api.get("/content-posts").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
@@ -23,18 +28,33 @@ export default function ContentSchedule() {
 
   const create = async () => {
     if (!form.staff_id || !form.target_time) return toast.error("Staf & waktu target wajib");
-    await api.post("/content-posts", { ...form, target_time: new Date(form.target_time).toISOString() });
-    toast.success("Jadwal dibuat"); setOpen(false);
+    await api.post("/content-posts", { ...form, status: "konsep", target_time: new Date(form.target_time).toISOString() });
+    toast.success("Jadwal konten dibuat"); setOpen(false);
     setForm({ staff_id: "", platform: "tiktok", content_type: "post", title: "", target_time: "", link: "" }); load();
   };
-  const markUploaded = async (r) => { await api.put(`/content-posts/${r.id}/mark-uploaded`, {}); toast.success("Ditandai upload"); load(); };
+  const setStatus = async (r, status) => {
+    await api.put(`/content-posts/${r.id}/status`, { status });
+    toast.success(`Status → ${FLOW_LABEL[status]}`); load();
+  };
   const del = async (id) => { if (!window.confirm("Hapus?")) return; await api.delete(`/content-posts/${id}`); load(); };
+
+  const filtered = filter ? rows.filter((r) => r.status === filter) : rows;
 
   return (
     <div>
-      <PageHeader title="Jadwal Konten Sosial" subtitle="Kelola jadwal upload konten karyawan">
+      <PageHeader title="Jadwal Konten Sosial" subtitle="Tracking produksi konten: Konsep → Edited → Selesai Edit → Upload">
         <Button onClick={() => setOpen(true)} className="bg-sky-600 hover:bg-sky-700" data-testid="content-add-btn"><Plus className="w-4 h-4 mr-1.5" /> Jadwalkan</Button>
       </PageHeader>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button onClick={() => setFilter("")} className={`px-3 py-1.5 rounded-md text-sm ${filter === "" ? "bg-sky-600 text-white" : "bg-white border border-slate-200 text-slate-600"}`}>Semua</button>
+        {FLOW.map((s) => (
+          <button key={s} onClick={() => setFilter(s)} className={`px-3 py-1.5 rounded-md text-sm ${filter === s ? "bg-sky-600 text-white" : "bg-white border border-slate-200 text-slate-600"}`}>
+            {FLOW_LABEL[s]} <span className="opacity-60">({rows.filter((r) => r.status === s).length})</span>
+          </button>
+        ))}
+      </div>
+
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200"><tr>
@@ -42,8 +62,8 @@ export default function ContentSchedule() {
           </tr></thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={7}><Loading /></td></tr>
-              : rows.length === 0 ? <tr><td colSpan={7}><Empty /></td></tr>
-              : rows.map((r) => (
+              : filtered.length === 0 ? <tr><td colSpan={7}><Empty /></td></tr>
+              : filtered.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">{r.staff_name}</td>
                   <td className="px-4 py-3 capitalize">{r.platform}</td>
@@ -52,7 +72,11 @@ export default function ContentSchedule() {
                   <td className="px-4 py-3 text-slate-500">{fmtDate(r.target_time)}</td>
                   <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {r.status === "scheduled" && <Button size="sm" variant="outline" className="text-xs mr-1" onClick={() => markUploaded(r)} data-testid={`content-upload-${r.id}`}><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Upload</Button>}
+                    {NEXT[r.status] && (
+                      <Button size="sm" variant="outline" className="text-xs mr-1" onClick={() => setStatus(r, NEXT[r.status])} data-testid={`content-next-${r.id}`}>
+                        → {FLOW_LABEL[NEXT[r.status]]}
+                      </Button>
+                    )}
                     <button onClick={() => del(r.id)} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
@@ -60,6 +84,7 @@ export default function ContentSchedule() {
           </tbody>
         </table>
       </div>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Jadwalkan Konten</DialogTitle></DialogHeader>

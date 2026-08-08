@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only verification of new HAM Store features. Logged in as admin@tokohp.com and validated: sidebar logo image, customers page client-side search (161->1 rows on unmatched query), Tambah Pelanggan modal exposes customer-scan-btn + IMEI input, Absensi renders all 5 attendance buttons, Pengeluaran shows crud-total 'Total Pengeluaran Rp 11.211.532', PPOB shows both omset & laba summary cards, Jadwal Konten shows all 4 pipeline tabs (Konsep/Edited/Selesai Edit/Upload) plus Status column, and HP Calculator (harga-hp) works client-side. Exact math check verified: market Rp 7.500.000 * 0.99 (grade 99%) * 0.98 (tanpa_nota 2%) = Rp 7.276.500 (exact match, diff=0). All 17 deduction rows render with ded-<key> testids. No records were created/updated/deleted on production Atlas.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dialogs (Customers modal)", "issues": ["Console warning: Missing `Description` or `aria-describedby` for DialogContent (a11y warning, non-blocking)"]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "HpPrices.jsx: total potongan cap MAX_TOTAL=80 correctly applied via Math.min; math verified exact.",
+    "Radix Dialogs missing aria-describedby / DialogDescription across modals (non-critical a11y warning) — main agent can silence by adding <DialogDescription>."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (9/9 checks passed)"},
+  "test_credentials": "admin@tokohp.com / admin123 (owner)",
+  "seed_data_creation": "None — read-only testing on production Atlas as instructed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 7 requested features verified passing on frontend. Only remaining polish is DialogDescription accessibility warnings. Do NOT write to Atlas — treat customer/attendance/expense/ppob/konten as read-only. Calculator on /harga-hp is fully client-side and safe to interact.",
+  "rca of the issue": "N/A — no issues found."
+}

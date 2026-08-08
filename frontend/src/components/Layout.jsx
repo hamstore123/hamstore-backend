@@ -5,8 +5,9 @@ import {
   LayoutDashboard, Package, ShoppingCart, Truck, Users, Boxes,
   Wrench, Tags, Smartphone, HandCoins, Receipt, CalendarClock,
   UserCog, ListTodo, Megaphone, TrendingUp, Zap, FileBarChart,
-  LogOut, Menu, Store,
+  LogOut, Menu,
 } from "lucide-react";
+import logo from "@/assets/ham-logo.png";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -43,9 +44,9 @@ export default function Layout({ children }) {
 
   const Sidebar = (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full shrink-0">
-      <div className="h-16 flex items-center gap-2 px-5 border-b border-slate-800">
-        <div className="w-9 h-9 rounded-lg bg-sky-500 flex items-center justify-center">
-          <Store className="w-5 h-5 text-white" />
+      <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-800">
+        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center p-1 shrink-0">
+          <img src={logo} alt="HAM Store" className="w-full h-full object-contain" />
         </div>
         <div>
           <div className="text-white font-semibold leading-tight">HAM Store</div>

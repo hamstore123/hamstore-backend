@@ -9,7 +9,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Plus, Search, Calculator, Pencil, Trash2 } from "lucide-react";
 
-const GRADES = { A: 0.85, B: 0.75, C: 0.6, D: 0.4 };
+const GRADE_DEFAULT = { A: 99, B: 85, C: 70, D: 40 };
+
+const DEDUCTIONS = [
+  { key: "tanpa_dus", label: "Tanpa Dus", pct: 10 },
+  { key: "tanpa_charger", label: "Tanpa Charger", pct: 2 },
+  { key: "tanpa_nota", label: "Tanpa Nota Pembelian", pct: 2 },
+  { key: "garansi_habis", label: "Garansi Habis", pct: 3 },
+  { key: "lcd_shadow", label: "LCD Bayangan/Shadow", pct: 10 },
+  { key: "lcd_burnin", label: "LCD Burn-in/Spot", pct: 10 },
+  { key: "lcd_retak", label: "LCD Retak/Pecah", pct: 25 },
+  { key: "baterai", label: "Baterai di bawah 80%", pct: 7 },
+  { key: "ex_inter", label: "EX INTER / NON RESMI", pct: 40 },
+  { key: "port", label: "Port Charger Bermasalah", pct: 5 },
+  { key: "kamera", label: "Kamera Blur/Bermasalah", pct: 5 },
+  { key: "speaker", label: "Speaker Pecah", pct: 5 },
+  { key: "mic", label: "Mic Bermasalah", pct: 8 },
+  { key: "fingerprint", label: "Fingerprint/FaceID Mati", pct: 10 },
+  { key: "sinyal", label: "Sinyal Lemah", pct: 8 },
+  { key: "body", label: "Body Penyok/Bengkok", pct: 10 },
+  { key: "servis", label: "Sudah Pernah Servis", pct: 10 },
+];
+const MAX_TOTAL = 80;
 
 export default function HpPrices() {
   const [rows, setRows] = useState([]);
@@ -18,7 +39,12 @@ export default function HpPrices() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ brand: "", model: "", market_price: 0, note: "" });
-  const [calc, setCalc] = useState({ id: "", grade: "A" });
+
+  // calculator state
+  const [modelId, setModelId] = useState("");
+  const [grade, setGrade] = useState("B");
+  const [gradePct, setGradePct] = useState(GRADE_DEFAULT.B);
+  const [ded, setDed] = useState(() => DEDUCTIONS.reduce((a, d) => ({ ...a, [d.key]: { active: false, pct: d.pct } }), {}));
 
   const load = useCallback(() => {
     setLoading(true);
@@ -37,44 +63,111 @@ export default function HpPrices() {
   };
   const del = async (id) => { if (!window.confirm("Hapus?")) return; await api.delete(`/hp-prices/${id}`); load(); };
 
-  const selected = rows.find((r) => r.id === calc.id);
-  const estimate = selected ? selected.market_price * GRADES[calc.grade] : 0;
+  const onGrade = (g) => { setGrade(g); setGradePct(GRADE_DEFAULT[g]); };
+  const toggleDed = (k, v) => setDed({ ...ded, [k]: { ...ded[k], active: v === "ya" } });
+  const setDedPct = (k, pct) => setDed({ ...ded, [k]: { ...ded[k], pct: Number(pct) } });
+
+  const selected = rows.find((r) => r.id === modelId);
+  const market = selected?.market_price || 0;
+  const afterGrade = market * (Number(gradePct) / 100);
+  const totalPotongan = Math.min(MAX_TOTAL, DEDUCTIONS.reduce((s, d) => s + (ded[d.key].active ? Number(ded[d.key].pct || 0) : 0), 0));
+  const finalPrice = afterGrade * (1 - totalPotongan / 100);
+  const recLow = finalPrice * 1.15;
+  const recHigh = finalPrice * 1.25;
 
   return (
     <div>
-      <PageHeader title="Harga HP (Tukar Tambah)" subtitle="Master harga pasaran & kalkulator grade">
-        <Button onClick={() => { setEditing(null); setForm({ brand: "", model: "", market_price: 0, note: "" }); setOpen(true); }} className="bg-sky-600 hover:bg-sky-700" data-testid="hp-add-btn">
-          <Plus className="w-4 h-4 mr-1.5" /> Tambah
-        </Button>
-      </PageHeader>
+      <PageHeader title="Kalkulator Harga Beli / Tukar Tambah" subtitle="Estimasi harga beli HP bekas berdasarkan grade & kondisi" />
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-4">
-        <div className="flex items-center gap-2 font-medium text-slate-800 mb-3"><Calculator className="w-5 h-5 text-sky-600" /> Kalkulator Harga Tukar</div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-          <div className="md:col-span-2">
-            <Label className="text-xs text-slate-500">Model HP</Label>
-            <Select value={calc.id} onValueChange={(v) => setCalc({ ...calc, id: v })}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* left: pick + grade + result */}
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <div className="flex items-center gap-2 font-medium text-slate-800 mb-3"><span className="w-6 h-6 rounded bg-sky-100 text-sky-700 text-xs flex items-center justify-center font-semibold">1</span> Pilih HP</div>
+            <Label className="text-xs text-slate-500">Model (Merek - Model)</Label>
+            <Select value={modelId} onValueChange={setModelId}>
               <SelectTrigger className="mt-1" data-testid="calc-model"><SelectValue placeholder="Pilih model" /></SelectTrigger>
-              <SelectContent>{rows.map((r) => <SelectItem key={r.id} value={r.id}>{r.brand} {r.model}</SelectItem>)}</SelectContent>
+              <SelectContent>{rows.map((r) => <SelectItem key={r.id} value={r.id}>{r.brand} - {r.model}</SelectItem>)}</SelectContent>
             </Select>
+            <div className="flex justify-between mt-3 text-sm"><span className="text-slate-500">Harga Pasaran</span><span className="font-mono-num font-semibold text-slate-800">{fmtIDR(market)}</span></div>
           </div>
-          <div>
-            <Label className="text-xs text-slate-500">Grade Kondisi</Label>
-            <Select value={calc.grade} onValueChange={(v) => setCalc({ ...calc, grade: v })}>
-              <SelectTrigger className="mt-1" data-testid="calc-grade"><SelectValue /></SelectTrigger>
-              <SelectContent>{Object.keys(GRADES).map((g) => <SelectItem key={g} value={g}>Grade {g} ({GRADES[g] * 100}%)</SelectItem>)}</SelectContent>
-            </Select>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <div className="flex items-center gap-2 font-medium text-slate-800 mb-3"><span className="w-6 h-6 rounded bg-sky-100 text-sky-700 text-xs flex items-center justify-center font-semibold">2</span> Grade Kondisi</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-500">Grade</Label>
+                <Select value={grade} onValueChange={onGrade}>
+                  <SelectTrigger className="mt-1" data-testid="calc-grade"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.keys(GRADE_DEFAULT).map((g) => <SelectItem key={g} value={g}>Grade {g}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">% Grade</Label>
+                <Input type="number" value={gradePct} onChange={(e) => setGradePct(e.target.value)} className="mt-1" data-testid="calc-grade-pct" />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2">Default: A=99% B=85% C=70% D=40% (bisa diedit)</p>
+            <div className="flex justify-between mt-3 text-sm"><span className="text-slate-500">Harga setelah Grade</span><span className="font-mono-num font-semibold text-slate-800">{fmtIDR(afterGrade)}</span></div>
           </div>
-          <div className="bg-sky-50 rounded-lg p-3 text-center">
-            <div className="text-xs text-sky-600">Estimasi Harga Tukar</div>
-            <div className="text-xl font-semibold font-mono-num text-sky-700" data-testid="calc-result">{fmtIDR(estimate)}</div>
+
+          <div className="bg-gradient-to-br from-sky-600 to-sky-700 rounded-xl shadow-sm p-5 text-white">
+            <div className="text-xs uppercase tracking-wide opacity-80">Harga Beli / Tukar Tambah Final</div>
+            <div className="text-3xl font-semibold font-mono-num mt-1" data-testid="calc-result">{fmtIDR(finalPrice)}</div>
+            <div className="text-xs opacity-90 mt-2">Total potongan aktif: <b>{totalPotongan}%</b></div>
+            <div className="text-xs opacity-90 mt-1">Rekomendasi jual: {fmtIDR(recLow)} - {fmtIDR(recHigh)}</div>
+          </div>
+        </div>
+
+        {/* right: condition checklist */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <div className="flex items-center gap-2 font-medium text-slate-800 mb-1"><span className="w-6 h-6 rounded bg-sky-100 text-sky-700 text-xs flex items-center justify-center font-semibold">3</span> Kondisi Minus</div>
+          <p className="text-[11px] text-slate-400 mb-3">Pilih "Ya" jika ada masalah. Nilai potongan% bisa diedit.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200"><tr>
+                <th className="px-3 py-2 text-left font-medium text-slate-500">Item Kerusakan</th>
+                <th className="px-3 py-2 text-left font-medium text-slate-500 w-32">Ada?</th>
+                <th className="px-3 py-2 text-left font-medium text-slate-500 w-28">Potongan %</th>
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {DEDUCTIONS.map((d) => {
+                  const st = ded[d.key];
+                  return (
+                    <tr key={d.key} className={st.active ? "bg-red-50" : ""}>
+                      <td className="px-3 py-1.5 text-slate-700">{d.label}</td>
+                      <td className="px-3 py-1.5">
+                        <Select value={st.active ? "ya" : "tidak"} onValueChange={(v) => toggleDed(d.key, v)}>
+                          <SelectTrigger className="h-8" data-testid={`ded-${d.key}`}><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="tidak">Tidak</SelectItem><SelectItem value="ya">Ya</SelectItem></SelectContent>
+                        </Select>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <Input type="number" value={st.pct} onChange={(e) => setDedPct(d.key, e.target.value)} className="h-8 w-20 bg-amber-50" />
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-amber-100 font-semibold">
+                  <td className="px-3 py-2 text-amber-800">TOTAL POTONGAN AKTIF (maks {MAX_TOTAL}%)</td>
+                  <td></td>
+                  <td className="px-3 py-2 font-mono-num text-amber-800" data-testid="calc-total-potongan">{totalPotongan}%</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      <div className="relative mb-4 max-w-sm">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari model / brand..." className="pl-9" data-testid="hp-search" />
+      {/* master list */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="relative max-w-sm w-full">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari model / brand..." className="pl-9" data-testid="hp-search" />
+        </div>
+        <Button onClick={() => { setEditing(null); setForm({ brand: "", model: "", market_price: 0, note: "" }); setOpen(true); }} className="bg-sky-600 hover:bg-sky-700 ml-3" data-testid="hp-add-btn">
+          <Plus className="w-4 h-4 mr-1.5" /> Tambah
+        </Button>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">

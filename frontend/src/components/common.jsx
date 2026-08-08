@@ -33,6 +33,10 @@ const STATUS = {
   scheduled: "bg-amber-100 text-amber-800 border-amber-200",
   uploaded: "bg-green-100 text-green-800 border-green-200",
   late: "bg-orange-100 text-orange-800 border-orange-200",
+  konsep: "bg-slate-100 text-slate-700 border-slate-200",
+  edited: "bg-blue-100 text-blue-800 border-blue-200",
+  selesai_edit: "bg-violet-100 text-violet-800 border-violet-200",
+  upload: "bg-green-100 text-green-800 border-green-200",
 };
 
 export const StatusBadge = ({ status }) => (
