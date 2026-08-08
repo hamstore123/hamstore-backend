@@ -25,6 +25,16 @@ Continue an existing Toko HP app (FastAPI + MongoDB Atlas + React). Backend sour
   - Jadwal Konten: production pipeline status Konsep → Edited → Selesai Edit → Upload (new backend PUT /api/content-posts/{id}/status).
   - Harga HP: full "Kalkulator Harga Beli / Tukar Tambah" with editable grade % and 17-item condition checklist (Ya/Tidak + editable potongan%), total potongan (cap 80%), final price + rekomendasi jual. Math verified exact.
 
+## Implemented (2026-06, round 2)
+- Object storage (Emergent-managed) via POST /api/upload + GET /api/files/{path}; product `image_url` — foto tampil di tabel Produk & kartu Kasir.
+- Jadwal Konten: status jadi dropdown Konsep → Schedule → Edited → Selesai Edit → Telah Upload; + metrik konten (views/likes/comments/link) per post.
+- Dashboard: seksi "Konten Viral / FYP" menampilkan top konten uploaded by views (metrik input MANUAL, bukan API live IG/TikTok).
+- Laporan Keuangan lengkap: Total Omset + omset & laba per kategori (Penjualan HP, PPOB, Service), laba rugi lengkap, rincian pengeluaran, pembelian stok, laba bersih.
+- BarcodeScanner: html5-qrcode, prioritas kamera belakang + fallback pemilihan kamera & pesan bila kamera tak tersedia (Android/iOS).
+
+## Notes
+- Konten Viral metrics = input MANUAL oleh staf (belum integrasi API resmi Instagram/TikTok — butuh akun bisnis + API key jika ingin otomatis/live).
+
 ## Backlog / Next
 - P2: Add DialogDescription for a11y (non-blocking warning).
 - P2: Cetak struk (print receipt) for Kasir & Service.
