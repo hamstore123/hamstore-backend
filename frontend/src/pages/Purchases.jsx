@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ScanLine } from "lucide-react";
+import BarcodeScanner from "@/components/BarcodeScanner";
 
 export default function Purchases() {
   const [rows, setRows] = useState([]);
@@ -18,6 +19,7 @@ export default function Purchases() {
   const [supplier, setSupplier] = useState("umum");
   const [paid, setPaid] = useState(0);
   const [items, setItems] = useState([]);
+  const [scanOpen, setScanOpen] = useState(false);
 
   const load = () => { setLoading(true); api.get("/purchases").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
   useEffect(() => { load(); api.get("/products").then(({ data }) => setProducts(data)); api.get("/suppliers").then(({ data }) => setSuppliers(data)); }, []);
@@ -29,6 +31,15 @@ export default function Purchases() {
   };
   const upd = (id, k, v) => setItems(items.map((i) => i.product_id === id ? { ...i, [k]: Number(v) } : i));
   const total = items.reduce((s, i) => s + i.qty * i.cost_price, 0);
+
+  const scanAdd = async (code) => {
+    setScanOpen(false);
+    try {
+      const { data } = await api.get("/products", { params: { q: code } });
+      if (data && data.length) { addItem(data[0].id); toast.success(`Produk ditemukan: ${data[0].name}`); }
+      else toast.error("Produk tidak ditemukan untuk kode: " + code);
+    } catch { toast.error("Gagal mencari produk"); }
+  };
 
   const save = async () => {
     if (items.length === 0) return toast.error("Tambah minimal 1 item");
@@ -80,10 +91,17 @@ export default function Purchases() {
                 </Select>
               </div>
               <div><Label className="text-xs text-slate-500">Tambah Produk</Label>
-                <Select value="" onValueChange={addItem}>
-                  <SelectTrigger className="mt-1" data-testid="purchase-add-item"><SelectValue placeholder="Pilih produk" /></SelectTrigger>
-                  <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <div className="mt-1 flex gap-2">
+                  <div className="flex-1">
+                    <Select value="" onValueChange={addItem}>
+                      <SelectTrigger data-testid="purchase-add-item"><SelectValue placeholder="Pilih produk" /></SelectTrigger>
+                      <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="button" variant="outline" className="shrink-0" onClick={() => setScanOpen(true)} data-testid="purchase-scan-btn">
+                    <ScanLine className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
             <div className="space-y-2 max-h-56 overflow-y-auto">
@@ -104,6 +122,7 @@ export default function Purchases() {
           <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Batal</Button><Button onClick={save} className="bg-sky-600 hover:bg-sky-700" data-testid="purchase-save-btn">Simpan</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      <BarcodeScanner open={scanOpen} onClose={() => setScanOpen(false)} onScan={scanAdd} />
     </div>
   );
 }

@@ -8,7 +8,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, Plus, Minus, Trash2, ShoppingCart, Repeat } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, Repeat, ScanLine } from "lucide-react";
+import BarcodeScanner from "@/components/BarcodeScanner";
 
 export default function Kasir() {
   const [products, setProducts] = useState([]);
@@ -22,6 +23,7 @@ export default function Kasir() {
   const [tradeIn, setTradeIn] = useState(false);
   const [ti, setTi] = useState({ device_name: "", imei: "", condition: "", trade_value: 0, cost_price: 0 });
   const [saving, setSaving] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
 
   const loadProducts = (query = "") => api.get("/products", { params: query ? { q: query } : {} }).then(({ data }) => setProducts(data));
   useEffect(() => { loadProducts(); api.get("/customers").then(({ data }) => setCustomers(data)); }, []);
@@ -64,15 +66,34 @@ export default function Kasir() {
     } finally { setSaving(false); }
   };
 
+  const scanFind = async (code) => {
+    setScanOpen(false);
+    try {
+      const { data } = await api.get("/products", { params: { q: code } });
+      if (data && data.length) {
+        add(data[0]);
+        toast.success(`Ditambahkan: ${data[0].name}`);
+      } else {
+        setQ(code);
+        toast.error("Produk tidak ditemukan untuk kode: " + code);
+      }
+    } catch { toast.error("Gagal mencari produk"); }
+  };
+
   return (
     <div>
       <PageHeader title="Kasir / Penjualan" subtitle="Buat transaksi penjualan" />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* products */}
         <div className="lg:col-span-2">
-          <div className="relative mb-3">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari produk..." className="pl-9" data-testid="kasir-search" />
+          <div className="mb-3 flex gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari / scan produk (nama, SKU, IMEI)..." className="pl-9" data-testid="kasir-search" />
+            </div>
+            <Button type="button" variant="outline" onClick={() => setScanOpen(true)} data-testid="kasir-scan-btn">
+              <ScanLine className="w-4 h-4 mr-1.5" /> Scan
+            </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[calc(100vh-230px)] overflow-y-auto pr-1">
             {products.map((p) => (
@@ -164,6 +185,7 @@ export default function Kasir() {
           </div>
         </div>
       </div>
+      <BarcodeScanner open={scanOpen} onClose={() => setScanOpen(false)} onScan={scanFind} />
     </div>
   );
 }

@@ -11,12 +11,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, ScanLine } from "lucide-react";
+import BarcodeScanner from "@/components/BarcodeScanner";
 
 // columns: [{key,label,money,render}]  fields: [{name,label,type,options,money,required}]
 export default function CrudResource({
   title, subtitle, endpoint, columns, fields, searchable = true,
-  canCreate = true, canEdit = true, canDelete = true, transform, totalField,
+  canCreate = true, canEdit = true, canDelete = true, transform, totalField, scanSearch = false,
 }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +27,7 @@ export default function CrudResource({
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [scan, setScan] = useState(null);
 
   const uploadImage = async (e, name) => {
     const file = e.target.files && e.target.files[0];
@@ -103,9 +105,16 @@ export default function CrudResource({
       </PageHeader>
 
       {searchable && (
-        <div className="relative mb-4 max-w-sm">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari..." className="pl-9" data-testid="crud-search" />
+        <div className="mb-4 flex gap-2 max-w-sm">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari..." className="pl-9" data-testid="crud-search" />
+          </div>
+          {scanSearch && (
+            <Button type="button" variant="outline" onClick={() => setScan({ search: true })} data-testid="crud-scan-btn">
+              <ScanLine className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       )}
 
@@ -187,6 +196,13 @@ export default function CrudResource({
                     <input type="file" accept="image/*" onChange={(e) => uploadImage(e, f.name)} data-testid={`field-${f.name}`} className="text-xs" />
                     {uploading && <span className="text-xs text-slate-400">Mengupload...</span>}
                   </div>
+                ) : f.scannable ? (
+                  <div className="mt-1 flex gap-2">
+                    <Input type="text" value={form[f.name] ?? ""} onChange={(e) => setForm({ ...form, [f.name]: e.target.value })} data-testid={`field-${f.name}`} />
+                    <Button type="button" variant="outline" className="shrink-0" onClick={() => setScan({ field: f.name })} data-testid={`scan-${f.name}`}>
+                      <ScanLine className="w-4 h-4" />
+                    </Button>
+                  </div>
                 ) : (
                   <Input
                     type={f.type === "number" ? "number" : "text"}
@@ -206,6 +222,13 @@ export default function CrudResource({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BarcodeScanner open={!!scan} onClose={() => setScan(null)} onScan={(code) => {
+        if (scan?.search) setQ(code);
+        else if (scan?.field) setForm((f) => ({ ...f, [scan.field]: code }));
+        setScan(null);
+        toast.success("Kode terbaca: " + code);
+      }} />
     </div>
   );
 }
