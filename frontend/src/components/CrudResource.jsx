@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import api, { fmtIDR } from "@/lib/api";
+import api, { fmtIDR, fileUrl } from "@/lib/api";
 import { PageHeader, Loading, Empty } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,25 @@ export default function CrudResource({
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadImage = async (e, name) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    setUploading(true);
+    try {
+      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const url = data?.url || data?.path || data?.file_url || data;
+      setForm((prev) => ({ ...prev, [name]: url }));
+      toast.success("Foto diunggah");
+    } catch (err) {
+      toast.error("Gagal upload foto");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -160,6 +179,14 @@ export default function CrudResource({
                       ))}
                     </SelectContent>
                   </Select>
+                ) : f.type === "image" ? (
+                  <div className="mt-1 flex items-center gap-3">
+                    {form[f.name]
+                      ? <img src={fileUrl(form[f.name])} alt="" className="w-16 h-16 rounded-lg object-cover border border-slate-200" />
+                      : <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 text-[10px]">No Img</div>}
+                    <input type="file" accept="image/*" onChange={(e) => uploadImage(e, f.name)} data-testid={`field-${f.name}`} className="text-xs" />
+                    {uploading && <span className="text-xs text-slate-400">Mengupload...</span>}
+                  </div>
                 ) : (
                   <Input
                     type={f.type === "number" ? "number" : "text"}

@@ -1,4 +1,5 @@
 import CrudResource from "@/components/CrudResource";
+import { fileUrl } from "@/lib/api";
 
 export default function Products() {
   return (
@@ -7,6 +8,11 @@ export default function Products() {
       subtitle="Kelola produk & inventaris"
       endpoint="/products"
       columns={[
+        { key: "image_url", label: "Foto", render: (r) => (
+          r.image_url
+            ? <img src={fileUrl(r.image_url)} alt="" className="w-10 h-10 rounded-lg object-cover border border-slate-200" />
+            : <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 text-[9px]">No Img</div>
+        ) },
         { key: "name", label: "Nama" },
         { key: "brand", label: "Brand" },
         { key: "category", label: "Kategori" },
@@ -17,6 +23,7 @@ export default function Products() {
         { key: "sell_price", label: "Jual", money: true },
       ]}
       fields={[
+        { name: "image_url", label: "Foto Produk", type: "image", full: true },
         { name: "name", label: "Nama Produk", required: true, full: true },
         { name: "brand", label: "Brand" },
         { name: "category", label: "Kategori", default: "Handphone" },

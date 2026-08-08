@@ -1,0 +1,33 @@
+{
+  "summary": "Full backend + frontend regression on Toko HP against production Atlas. Wrote 4 new pytest cases (expanded profit-loss fields, dashboard top_content presence, full content-post lifecycle create->status->metrics->dashboard->delete, products image_url field) — 30/30 backend tests passing (~44s). Frontend: verified /konten pipeline tabs & 155 content-status dropdowns + metric buttons, Dashboard 'Konten Viral / FYP (Uploaded)' section renders, /laporan profit-loss (2026-01-01..2026-12-31) shows Total Omset Rp 22.673.000, all 11 required labels (Omset Penjualan HP, HPP, Laba Penjualan, Omset PPOB, Laba PPOB, Omset Service, Laba Service, Total Laba Kotor, Total Pengeluaran, LABA BERSIH, Rincian Pengeluaran) present, report-total-omset and report-net testids present, /pelanggan Tambah -> customer-scan-btn opens barcode-reader dialog with graceful fallback text. FOUND & FIXED a critical bug: /produk page crashed with 'uploading is not defined' — CrudResource.jsx image field referenced undefined `uploading` state and `uploadImage` function. Added the missing state and multipart upload handler (POST /api/upload). After fix: /produk fully loads, Foto column visible with 81 rows, edit modal shows field-image_url picker with 'No Img' placeholder. No console errors after fix. Kasir shows product images / 'No Img' placeholders. Total content-posts on Atlas: verified test post lifecycle cleaned up (no residue). No writes to products/customers/sales/expenses.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "None outstanding — critical /produk crash was fixed by testing agent (added missing uploading state + uploadImage handler in CrudResource.jsx)."
+  ],
+  "critical_code_review_comments": [
+    "CrudResource.jsx: was referencing `uploading` and `uploadImage` without defining them — caused a hard ReferenceError that killed the entire /produk route (whitescreen on the page for any resource using an image field). Fixed by adding useState + async multipart upload to /api/upload. Recommend main agent review to confirm the response shape (server.py POST /api/upload) matches what I read (using data.url || data.path || data.file_url as fallbacks).",
+    "Radix Dialogs still missing aria-describedby / DialogDescription (a11y warning, non-blocking) — carried over from iteration_2.",
+    "Backend `/api/reports/profit-loss` correctly computes net_profit = total_gross_profit - total_expense (validated math within 0.01 tolerance).",
+    "Backend `/api/content-posts/{id}/status` correctly normalizes 'upload'/'uploaded' to canonical 'upload' and sets actual_time on transition — verified end-to-end via dashboard top_content pickup."
+  ],
+  "updated_files": [
+    "/app/frontend/src/components/CrudResource.jsx (added missing `uploading` state + `uploadImage` handler)",
+    "/app/backend/tests/backend_test.py (added 4 new tests: expanded PL fields, top_content, content-post lifecycle, products image_url)"
+  ],
+  "success_rate": {"backend": "100% (30/30)", "frontend": "100% after fix (7/7 features verified)"},
+  "test_credentials": "admin@tokohp.com / admin123 (owner)",
+  "seed_data_creation": "One content post created with title '__QA_TEST__' during pytest lifecycle test and deleted in same test's finally block — production Atlas is clean.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression suite in /app/backend/tests/backend_test.py runs 30 tests in ~44s including a reversible content-post lifecycle test. All new features (content status pipeline, content metrics, dashboard top_content, expanded profit-loss report, product image picker, barcode scanner fallback) are working. If /produk breaks again, first check CrudResource.jsx has `uploading` state and `uploadImage` function — the image field references them.",
+  "rca of the issue": "Product page (/produk) whitescreen RCA: CrudResource.jsx line 168-169 rendered `<input onChange={(e) => uploadImage(e, f.name)}/>` and `{uploading && ...}` but neither `uploadImage` nor `uploading` were declared in the component scope. Because Radix Dialog children are mounted eagerly, the image-field JSX branch is evaluated on every render of a resource page that has an image field (Produk), causing an immediate `ReferenceError: uploading is not defined` that aborts the render tree. Repro: navigate to /produk while logged in — before fix: blank content area + pageerror in console. Mitigation applied: added `const [uploading, setUploading] = useState(false)` and an async `uploadImage(e, name)` handler that POSTs multipart to `/api/upload` and stores the returned url/path into the form. Verified /produk now renders 81 rows and edit modal shows the picker."
+}

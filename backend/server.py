@@ -11,7 +11,7 @@ import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
@@ -20,6 +20,47 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict
 mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
+
+# ---------------- Object Storage ----------------
+import requests as _requests
+STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
+STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "hamstore"
+_storage_key = None
+
+
+def init_storage(force: bool = False):
+    global _storage_key
+    if _storage_key and not force:
+        return _storage_key
+    resp = _requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = _requests.put(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
+    if resp.status_code == 404:
+        key = init_storage(force=True)
+        resp = _requests.put(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_object(path: str):
+    key = init_storage()
+    resp = _requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if resp.status_code == 404:
+        key = init_storage(force=True)
+        resp = _requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+
+MIME_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}
 
 # ---------------- App ----------------
 app = FastAPI(title="Toko HP Management API")
@@ -115,6 +156,7 @@ class ProductIn(BaseModel):
     cost_price: float = 0  # HPP
     sell_price: float = 0
     description: Optional[str] = ""
+    image_url: Optional[str] = ""
 
 
 class CustomerIn(BaseModel):
@@ -802,6 +844,7 @@ async def dashboard_summary(user: dict = Depends(get_current_user)):
         trend[d] += s["total"]
     trend_list = [{"date": k, "total": v} for k, v in sorted(trend.items())]
 
+    top_content = await db.content_posts.find({"status": {"$in": ["upload", "uploaded"]}}, {"_id": 0}).sort("views", -1).to_list(6)
     return {
         "sales_today": sales_today, "sales_month": sales_month,
         "profit_month": profit_month + (ppob_month or 0) - (expense_month or 0),
@@ -811,6 +854,7 @@ async def dashboard_summary(user: dict = Depends(get_current_user)):
         "total_hutang": hutang[0]["s"] if hutang else 0,
         "total_piutang": piutang[0]["s"] if piutang else 0,
         "trend_7d": trend_list,
+        "top_content": top_content,
     }
 
 
@@ -819,18 +863,32 @@ async def report_pl(start: str, end: str, user: dict = Depends(get_current_user)
     sales = await db.sales.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
     ppob = await db.ppob.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
     expenses = await db.expenses.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
-    revenue = sum(s.get("total", 0) for s in sales)
+    services = await db.services.find({"created_at": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
+    purchases = await db.purchases.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
+
+    sales_revenue = sum(s.get("total", 0) for s in sales)
     hpp = sum(s.get("total_cost", 0) for s in sales)
-    gross_profit = sum(s.get("profit", 0) for s in sales)
+    sales_profit = sum(s.get("profit", 0) for s in sales)
     ppob_revenue = sum(p.get("price", 0) for p in ppob)
+    ppob_cost = sum(p.get("cost", 0) for p in ppob)
     ppob_profit = sum(p.get("profit", 0) for p in ppob)
+    service_revenue = sum(s.get("total_price", 0) for s in services)
+    service_cost = sum(s.get("sparepart_cost", 0) for s in services)
+    service_profit = service_revenue - service_cost
     total_expense = sum(e.get("amount", 0) for e in expenses)
-    net = gross_profit + ppob_profit - total_expense
+    purchase_total = sum(p.get("total", 0) for p in purchases)
+
+    total_omset = sales_revenue + ppob_revenue + service_revenue
+    gross_profit = sales_profit + ppob_profit + service_profit
+    net = gross_profit - total_expense
     return {
-        "revenue": revenue, "hpp": hpp, "gross_profit": gross_profit,
-        "ppob_revenue": ppob_revenue, "ppob_profit": ppob_profit,
+        "revenue": sales_revenue, "hpp": hpp, "gross_profit": sales_profit,
+        "sales_revenue": sales_revenue, "sales_hpp": hpp, "sales_profit": sales_profit, "sales_count": len(sales),
+        "ppob_revenue": ppob_revenue, "ppob_cost": ppob_cost, "ppob_profit": ppob_profit, "ppob_count": len(ppob),
+        "service_revenue": service_revenue, "service_cost": service_cost, "service_profit": service_profit, "service_count": len(services),
+        "purchase_total": purchase_total, "purchase_count": len(purchases),
+        "total_omset": total_omset, "total_gross_profit": gross_profit,
         "total_expense": total_expense, "net_profit": net,
-        "sales_count": len(sales), "ppob_count": len(ppob),
         "expense_breakdown": _breakdown(expenses, "category", "amount"),
     }
 
@@ -991,6 +1049,7 @@ async def create_content_post(body: ContentPostIn, user: dict = Depends(get_curr
     doc.update({
         "id": new_id(),
         "staff_name": staff["name"] if staff else "-",
+        "views": 0, "likes": 0, "comments": 0,
         "created_at": now_iso(),
     })
     await db.content_posts.insert_one(doc)
@@ -1033,6 +1092,18 @@ async def update_content_status(cid: str, body: dict, user: dict = Depends(get_c
             updates["link"] = body.get("link")
     await db.content_posts.update_one({"id": cid}, {"$set": updates})
     return {"ok": True, "status": updates["status"]}
+
+
+@api.put("/content-posts/{cid}/metrics")
+async def update_content_metrics(cid: str, body: dict, user: dict = Depends(get_current_user)):
+    updates = {}
+    for k in ("views", "likes", "comments"):
+        if k in body:
+            updates[k] = int(body.get(k) or 0)
+    if "link" in body:
+        updates["link"] = body["link"]
+    await db.content_posts.update_one({"id": cid}, {"$set": updates})
+    return {"ok": True}
 
 
 @api.delete("/content-posts/{cid}")
@@ -1217,6 +1288,27 @@ async def seed_from_files(user: dict = Depends(require_roles("owner"))):
     return results
 
 
+@api.post("/upload")
+async def upload_file(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "bin"
+    ctype = file.content_type or MIME_TYPES.get(ext, "application/octet-stream")
+    path = f"{APP_NAME}/uploads/{new_id()}.{ext}"
+    data = await file.read()
+    result = put_object(path, data, ctype)
+    await db.files.insert_one({
+        "id": new_id(), "storage_path": result["path"], "original_filename": file.filename,
+        "content_type": ctype, "size": result.get("size", 0), "is_deleted": False, "created_at": now_iso(),
+    })
+    return {"url": f"/api/files/{result['path']}", "path": result["path"]}
+
+
+@app.get("/api/files/{path:path}")
+async def serve_file(path: str):
+    rec = await db.files.find_one({"storage_path": path, "is_deleted": False})
+    data, ct = get_object(path)
+    return Response(content=data, media_type=(rec.get("content_type") if rec else None) or ct)
+
+
 # ---------------- Include & CORS ----------------
 app.include_router(api)
 
@@ -1238,6 +1330,12 @@ async def startup():
     await db.sales.create_index("date")
     await db.purchases.create_index("date")
     await db.hp_prices.create_index("model")
+
+    try:
+        init_storage()
+        logger.info("Storage initialized")
+    except Exception as e:
+        logger.error(f"Storage init failed: {e}")
 
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@tokohp.com")
     admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")

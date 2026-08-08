@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import {
   TrendingUp, ShoppingCart, Package, Wallet, AlertTriangle, Users, Boxes, Receipt,
+  Eye, Heart, MessageCircle,
 } from "lucide-react";
 
 const Stat = ({ icon: Icon, label, value, sub, tone = "sky" }) => {
@@ -70,6 +71,31 @@ export default function Dashboard() {
               <Line type="monotone" dataKey="total" stroke="#0284c7" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+        <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="font-medium text-slate-800 mb-3">Konten Viral / FYP (Uploaded)</h3>
+          {(s.top_content || []).filter((c) => (c.views || c.likes || c.comments)).length === 0 ? (
+            <div className="text-sm text-slate-400 py-6 text-center">Belum ada metrik konten. Isi views/like/komen di halaman Jadwal Konten setelah upload.</div>
+          ) : (
+            <div className="space-y-2">
+              {(s.top_content || []).map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2 last:border-0" data-testid={`viral-${c.id}`}>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-slate-800 truncate">{c.title || "(tanpa judul)"}</div>
+                    <div className="text-xs text-slate-400 capitalize">{c.platform} · {c.staff_name}{c.link && <a href={c.link} target="_blank" rel="noreferrer" className="text-sky-600 ml-2">buka</a>}</div>
+                  </div>
+                  <div className="flex gap-4 text-xs font-mono-num shrink-0">
+                    <span className="flex items-center gap-1 text-slate-600"><Eye className="w-3.5 h-3.5 text-sky-500" />{(c.views || 0).toLocaleString("id-ID")}</span>
+                    <span className="flex items-center gap-1 text-slate-600"><Heart className="w-3.5 h-3.5 text-red-500" />{(c.likes || 0).toLocaleString("id-ID")}</span>
+                    <span className="flex items-center gap-1 text-slate-600"><MessageCircle className="w-3.5 h-3.5 text-green-500" />{(c.comments || 0).toLocaleString("id-ID")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="font-medium text-slate-800 mb-3">Keuangan</h3>

@@ -25,6 +25,9 @@ api.interceptors.response.use(
 export const fmtIDR = (n) =>
   "Rp " + Math.round(Number(n || 0)).toLocaleString("id-ID");
 
+export const BACKEND = process.env.REACT_APP_BACKEND_URL;
+export const fileUrl = (u) => (!u ? "" : String(u).startsWith("http") ? u : `${BACKEND}${u}`);
+
 export const fmtDate = (s) => {
   if (!s) return "-";
   try {

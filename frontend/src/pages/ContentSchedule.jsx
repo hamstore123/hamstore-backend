@@ -1,19 +1,31 @@
 import { useEffect, useState } from "react";
 import api, { fmtDate } from "@/lib/api";
-import { PageHeader, Loading, Empty, StatusBadge } from "@/components/common";
+import { PageHeader, Loading, Empty } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, BarChart3, Eye, Heart, MessageCircle } from "lucide-react";
 
 const PLATFORMS = ["tiktok", "instagram", "facebook", "youtube", "whatsapp"];
-// Content production pipeline
-const FLOW = ["konsep", "edited", "selesai_edit", "upload"];
-const FLOW_LABEL = { konsep: "Konsep", edited: "Edited", selesai_edit: "Selesai Edit", upload: "Upload" };
-const NEXT = { konsep: "edited", edited: "selesai_edit", selesai_edit: "upload" };
+// Status pipeline: Konsep -> Schedule -> Edited -> Selesai Edit -> Telah Upload
+const STATUSES = [
+  { value: "konsep", label: "Konsep" },
+  { value: "scheduled", label: "Schedule" },
+  { value: "edited", label: "Edited" },
+  { value: "selesai_edit", label: "Selesai Edit" },
+  { value: "upload", label: "Telah Upload" },
+];
+const LABEL = STATUSES.reduce((a, s) => ({ ...a, [s.value]: s.label }), {});
+const STYLE = {
+  konsep: "bg-slate-100 text-slate-700 border-slate-200",
+  scheduled: "bg-amber-100 text-amber-800 border-amber-200",
+  edited: "bg-blue-100 text-blue-800 border-blue-200",
+  selesai_edit: "bg-violet-100 text-violet-800 border-violet-200",
+  upload: "bg-green-100 text-green-800 border-green-200",
+};
 
 export default function ContentSchedule() {
   const [rows, setRows] = useState([]);
@@ -22,6 +34,8 @@ export default function ContentSchedule() {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [form, setForm] = useState({ staff_id: "", platform: "tiktok", content_type: "post", title: "", target_time: "", link: "" });
+  const [metricFor, setMetricFor] = useState(null);
+  const [metric, setMetric] = useState({ views: 0, likes: 0, comments: 0, link: "" });
 
   const load = () => { setLoading(true); api.get("/content-posts").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
   useEffect(() => { load(); api.get("/staff").then(({ data }) => setStaff(data)).catch(() => {}); }, []);
@@ -32,9 +46,16 @@ export default function ContentSchedule() {
     toast.success("Jadwal konten dibuat"); setOpen(false);
     setForm({ staff_id: "", platform: "tiktok", content_type: "post", title: "", target_time: "", link: "" }); load();
   };
-  const setStatus = async (r, status) => {
+  const changeStatus = async (r, status) => {
     await api.put(`/content-posts/${r.id}/status`, { status });
-    toast.success(`Status → ${FLOW_LABEL[status]}`); load();
+    toast.success(`Status → ${LABEL[status]}`); load();
+  };
+  const openMetric = (r) => { setMetricFor(r); setMetric({ views: r.views || 0, likes: r.likes || 0, comments: r.comments || 0, link: r.link || "" }); };
+  const saveMetric = async () => {
+    await api.put(`/content-posts/${metricFor.id}/metrics`, {
+      views: Number(metric.views || 0), likes: Number(metric.likes || 0), comments: Number(metric.comments || 0), link: metric.link,
+    });
+    toast.success("Metrik konten disimpan"); setMetricFor(null); load();
   };
   const del = async (id) => { if (!window.confirm("Hapus?")) return; await api.delete(`/content-posts/${id}`); load(); };
 
@@ -42,15 +63,15 @@ export default function ContentSchedule() {
 
   return (
     <div>
-      <PageHeader title="Jadwal Konten Sosial" subtitle="Tracking produksi konten: Konsep → Edited → Selesai Edit → Upload">
+      <PageHeader title="Jadwal Konten Sosial" subtitle="Tracking status: Konsep → Schedule → Edited → Selesai Edit → Telah Upload">
         <Button onClick={() => setOpen(true)} className="bg-sky-600 hover:bg-sky-700" data-testid="content-add-btn"><Plus className="w-4 h-4 mr-1.5" /> Jadwalkan</Button>
       </PageHeader>
 
       <div className="flex flex-wrap gap-2 mb-4">
         <button onClick={() => setFilter("")} className={`px-3 py-1.5 rounded-md text-sm ${filter === "" ? "bg-sky-600 text-white" : "bg-white border border-slate-200 text-slate-600"}`}>Semua</button>
-        {FLOW.map((s) => (
-          <button key={s} onClick={() => setFilter(s)} className={`px-3 py-1.5 rounded-md text-sm ${filter === s ? "bg-sky-600 text-white" : "bg-white border border-slate-200 text-slate-600"}`}>
-            {FLOW_LABEL[s]} <span className="opacity-60">({rows.filter((r) => r.status === s).length})</span>
+        {STATUSES.map((s) => (
+          <button key={s.value} onClick={() => setFilter(s.value)} className={`px-3 py-1.5 rounded-md text-sm ${filter === s.value ? "bg-sky-600 text-white" : "bg-white border border-slate-200 text-slate-600"}`}>
+            {s.label} <span className="opacity-60">({rows.filter((r) => r.status === s.value).length})</span>
           </button>
         ))}
       </div>
@@ -58,7 +79,7 @@ export default function ContentSchedule() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200"><tr>
-            {["Staf", "Platform", "Tipe", "Judul", "Target", "Status", "Aksi"].map((h) => <th key={h} className="px-4 py-3 text-left font-medium text-slate-500">{h}</th>)}
+            {["Staf", "Platform", "Judul", "Target", "Status", "Metrik", "Aksi"].map((h) => <th key={h} className="px-4 py-3 text-left font-medium text-slate-500">{h}</th>)}
           </tr></thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? <tr><td colSpan={7}><Loading /></td></tr>
@@ -67,16 +88,25 @@ export default function ContentSchedule() {
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">{r.staff_name}</td>
                   <td className="px-4 py-3 capitalize">{r.platform}</td>
-                  <td className="px-4 py-3 capitalize">{r.content_type}</td>
                   <td className="px-4 py-3">{r.title}</td>
                   <td className="px-4 py-3 text-slate-500">{fmtDate(r.target_time)}</td>
-                  <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                  <td className="px-4 py-3">
+                    <Select value={r.status} onValueChange={(v) => changeStatus(r, v)}>
+                      <SelectTrigger className={`h-8 w-36 border ${STYLE[r.status] || ""}`} data-testid={`content-status-${r.id}`}><SelectValue /></SelectTrigger>
+                      <SelectContent>{STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-4 py-3">
+                    {(r.views || r.likes || r.comments) ? (
+                      <div className="flex gap-3 text-xs font-mono-num text-slate-600">
+                        <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5 text-sky-500" />{r.views || 0}</span>
+                        <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5 text-red-500" />{r.likes || 0}</span>
+                        <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5 text-green-500" />{r.comments || 0}</span>
+                      </div>
+                    ) : <span className="text-xs text-slate-300">-</span>}
+                  </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {NEXT[r.status] && (
-                      <Button size="sm" variant="outline" className="text-xs mr-1" onClick={() => setStatus(r, NEXT[r.status])} data-testid={`content-next-${r.id}`}>
-                        → {FLOW_LABEL[NEXT[r.status]]}
-                      </Button>
-                    )}
+                    <Button size="sm" variant="outline" className="text-xs mr-1" onClick={() => openMetric(r)} data-testid={`content-metric-${r.id}`}><BarChart3 className="w-3.5 h-3.5 mr-1" /> Metrik</Button>
                     <button onClick={() => del(r.id)} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
@@ -113,6 +143,19 @@ export default function ContentSchedule() {
             <div><Label className="text-xs text-slate-500">Waktu Target</Label><Input type="datetime-local" value={form.target_time} onChange={(e) => setForm({ ...form, target_time: e.target.value })} className="mt-1" data-testid="content-target" /></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Batal</Button><Button onClick={create} className="bg-sky-600 hover:bg-sky-700" data-testid="content-save-btn">Simpan</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!metricFor} onOpenChange={(o) => !o && setMetricFor(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Metrik Konten (FYP / Viral)</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-3 gap-3 py-2">
+            <div><Label className="text-xs text-slate-500">Views</Label><Input type="number" value={metric.views} onChange={(e) => setMetric({ ...metric, views: e.target.value })} className="mt-1" data-testid="metric-views" /></div>
+            <div><Label className="text-xs text-slate-500">Likes</Label><Input type="number" value={metric.likes} onChange={(e) => setMetric({ ...metric, likes: e.target.value })} className="mt-1" data-testid="metric-likes" /></div>
+            <div><Label className="text-xs text-slate-500">Komentar</Label><Input type="number" value={metric.comments} onChange={(e) => setMetric({ ...metric, comments: e.target.value })} className="mt-1" data-testid="metric-comments" /></div>
+            <div className="col-span-3"><Label className="text-xs text-slate-500">Link Konten</Label><Input value={metric.link} onChange={(e) => setMetric({ ...metric, link: e.target.value })} className="mt-1" placeholder="https://..." /></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setMetricFor(null)}>Batal</Button><Button onClick={saveMetric} className="bg-sky-600 hover:bg-sky-700" data-testid="metric-save-btn">Simpan Metrik</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
