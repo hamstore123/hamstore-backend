@@ -1,20 +1,37 @@
 import { useEffect, useState } from "react";
-import api, { fmtDate } from "@/lib/api";
+import api, { fmtDate, fmtIDR } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { PageHeader, Loading, Empty } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, Boxes, Wallet, TrendingUp, Package, AlertTriangle } from "lucide-react";
+
+const Card = ({ icon: Icon, label, value, tone = "bg-slate-100 text-slate-600", grad }) => (
+  <div className={`rounded-xl border shadow-sm p-4 ${grad ? "text-white border-transparent " + grad : "bg-white border-slate-200"}`} data-testid={`stock-${label.toLowerCase().replace(/[^a-z]/g, "-")}`}>
+    <div className={`flex items-center gap-2 text-xs uppercase tracking-wide font-medium ${grad ? "opacity-90" : "text-slate-500"}`}>
+      {!grad && <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${tone}`}><Icon className="w-4 h-4" /></span>}
+      {grad && <Icon className="w-4 h-4" />} {label}
+    </div>
+    <div className={`text-xl font-semibold font-mono-num mt-2 ${grad ? "" : "text-slate-900"}`}>{value}</div>
+  </div>
+);
 
 export default function Stock() {
+  const { isOwner } = useAuth();
   const [moves, setMoves] = useState([]);
   const [products, setProducts] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [phys, setPhys] = useState({});
 
-  const load = () => { setLoading(true); api.get("/stock/movements").then(({ data }) => setMoves(data)).finally(() => setLoading(false)); };
+  const load = () => {
+    setLoading(true);
+    api.get("/stock/movements").then(({ data }) => setMoves(data)).finally(() => setLoading(false));
+    api.get("/stock/summary").then(({ data }) => setSummary(data)).catch(() => {});
+  };
   useEffect(() => { load(); api.get("/products").then(({ data }) => setProducts(data)); }, []);
 
   const saveOpname = async () => {
@@ -28,12 +45,25 @@ export default function Stock() {
   };
 
   const KIND = { sale: "Penjualan", purchase: "Pembelian", opname: "Opname", trade_in: "Tukar Tambah" };
+  const s = summary || {};
 
   return (
     <div>
-      <PageHeader title="Stok & Opname" subtitle="Mutasi stok & stock opname">
+      <PageHeader title="Stok & Opname" subtitle="Nilai stok, mutasi & stock opname">
         <Button onClick={() => setOpen(true)} className="bg-sky-600 hover:bg-sky-700" data-testid="opname-btn"><ClipboardCheck className="w-4 h-4 mr-1.5" /> Stock Opname</Button>
       </PageHeader>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <Card icon={Package} label="Total SKU" value={s.total_products ?? 0} tone="bg-slate-100 text-slate-600" />
+        <Card icon={Boxes} label="Total Unit" value={s.total_units ?? 0} tone="bg-sky-50 text-sky-600" />
+        <Card icon={Wallet} label="Total Modal Stok" value={fmtIDR(s.total_modal)} grad="bg-gradient-to-br from-slate-700 to-slate-800" />
+        <Card icon={TrendingUp} label="Nilai Jual (Omset Potensial)" value={fmtIDR(s.total_nilai_jual)} grad="bg-gradient-to-br from-sky-600 to-sky-700" />
+        {isOwner && <Card icon={TrendingUp} label="Potensi Laba" value={fmtIDR(s.potensi_laba)} grad="bg-gradient-to-br from-green-600 to-green-700" />}
+        <Card icon={AlertTriangle} label="Stok Menipis" value={s.low_stock_count ?? 0} tone="bg-amber-50 text-amber-600" />
+        <Card icon={AlertTriangle} label="Stok Habis" value={s.out_of_stock ?? 0} tone="bg-red-50 text-red-600" />
+      </div>
+
+      <h3 className="font-medium text-slate-800 mb-3">Mutasi Stok Terakhir</h3>
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200"><tr>
@@ -54,6 +84,7 @@ export default function Stock() {
           </tbody>
         </table>
       </div>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Stock Opname</DialogTitle></DialogHeader>

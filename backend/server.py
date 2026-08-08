@@ -1441,6 +1441,25 @@ async def stock_analysis(days: int = 30, user: dict = Depends(get_current_user))
     return {"days": days, "count": len(old), "total_modal": tied, "items": old}
 
 
+@api.get("/stock/summary")
+async def stock_summary(user: dict = Depends(get_current_user)):
+    prods = await db.products.find({}, {"_id": 0}).to_list(10000)
+    total_units = sum((p.get("stock", 0) or 0) for p in prods)
+    total_modal = sum((p.get("cost_price", 0) or 0) * (p.get("stock", 0) or 0) for p in prods)
+    total_nilai_jual = sum((p.get("sell_price", 0) or 0) * (p.get("stock", 0) or 0) for p in prods)
+    low_stock = sum(1 for p in prods if 0 < (p.get("stock", 0) or 0) <= (p.get("min_stock", 0) or 0))
+    out_stock = sum(1 for p in prods if (p.get("stock", 0) or 0) <= 0)
+    return {
+        "total_products": len(prods),
+        "total_units": total_units,
+        "total_modal": total_modal,
+        "total_nilai_jual": total_nilai_jual,
+        "potensi_laba": total_nilai_jual - total_modal,
+        "low_stock_count": low_stock,
+        "out_of_stock": out_stock,
+    }
+
+
 # ---------------- Include & CORS ----------------
 app.include_router(api)
 
