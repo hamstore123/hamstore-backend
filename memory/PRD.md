@@ -35,6 +35,20 @@ Continue an existing Toko HP app (FastAPI + MongoDB Atlas + React). Backend sour
 ## Notes
 - Konten Viral metrics = input MANUAL oleh staf (belum integrasi API resmi Instagram/TikTok — butuh akun bisnis + API key jika ingin otomatis/live).
 
+## Implemented (2026-06, round 3)
+- RBAC pemilik vs staf: backend require_roles('owner') gate /reports, /performance, /activity-logs; dashboard & /sales strip profit/keuangan untuk staf; frontend OwnerRoute + sidebar owner-only hidden. Staf: input produk/harga/scan/penjualan/PPOB/service; tidak lihat laba & laporan.
+- Cash Drawer / Shift: buka & tutup shift (modal laci awal), rekap cash/EDC/BRILink/Bank, kas seharusnya vs aktual + selisih, riwayat shift.
+- Riwayat Penjualan: omset, item, laba (owner-only), + tombol Kirim Nota WhatsApp (format HAM STORE + nama pelanggan + IMEI + garansi 14 hari).
+- Analisis Stok: unit >30/60/90 hari, badge Stok Lama/Perlu Promo, total modal tertahan.
+- Log Aktivitas Karyawan (owner): jejak penjualan, tambah produk, buka/tutup shift.
+- Staff test account: staf@tokohp.com / staf123.
+
+## Deferred (belum dikerjakan — tahap berikutnya)
+- Cetak Label Niimbot 50x30mm (QR/barcode IMEI, download gambar)
+- Booking & DP Terpadu (status Reserved, format Keep WA, pelunasan)
+- Manajemen Klaim & Servis 3-jenis (HP/Barang/Jasa) + WA update
+- Hybrid Price Intelligence (scraper Tokopedia/Shopee/Kitar + input manual + tren harga) — scraping butuh sumber/API resmi, perlu dibahas
+
 ## Backlog / Next
 - P2: Add DialogDescription for a11y (non-blocking warning).
 - P2: Cetak struk (print receipt) for Kasir & Service.
