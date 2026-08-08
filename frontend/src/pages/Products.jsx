@@ -7,6 +7,7 @@ export default function Products() {
       title="Produk"
       subtitle="Kelola produk & inventaris"
       endpoint="/products"
+      scanSearch
       columns={[
         { key: "image_url", label: "Foto", render: (r) => (
           r.image_url
