@@ -1,0 +1,162 @@
+{
+  "theme": "light",
+  "typography": {
+    "headings": {
+      "family": "Instrument Serif",
+      "usage": "Brand moments, Login screen hero text, or massive report totals to keep a subtle nod to the old warm build while transitioning to the professional ERP.",
+      "scales": {
+        "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
+        "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight leading-tight",
+        "h3": "text-xl sm:text-2xl tracking-tight"
+      }
+    },
+    "body": {
+      "family": "Inter",
+      "usage": "General UI, forms, sidebar navigation, standard buttons. Ensures maximum readability.",
+      "scales": {
+        "base": "text-base leading-relaxed",
+        "sm": "text-sm leading-relaxed",
+        "xs": "text-xs tracking-wide uppercase font-medium"
+      }
+    },
+    "numbers": {
+      "family": "Geist Mono",
+      "usage": "Currency (IDR), table data, phone numbers, stock quantities, and PPOB references. Tabular lining.",
+      "scales": {
+        "kpi": "text-3xl font-semibold tracking-tight",
+        "table": "text-sm tabular-nums"
+      }
+    }
+  },
+  "colors": {
+    "primary": {
+      "description": "Professional Blue - Trustworthy, clean, clinical for ERP",
+      "base": "#0284c7",
+      "hover": "#0369a1",
+      "light": "#e0f2fe",
+      "dark": "#075985"
+    },
+    "neutral": {
+      "background": "#f8fafc",
+      "surface": "#ffffff",
+      "border": "#e2e8f0",
+      "text_main": "#0f172a",
+      "text_muted": "#64748b"
+    },
+    "semantic": {
+      "success": {
+        "bg": "#dcfce7",
+        "text": "#166534",
+        "border": "#bbf7d0",
+        "usage": "Status 'Selesai', Laba, Stok In"
+      },
+      "warning": {
+        "bg": "#fef3c7",
+        "text": "#92400e",
+        "border": "#fde68a",
+        "usage": "Status 'Antre', Stok Low. Keeps the gold warm touch (#caaa72 vibe)"
+      },
+      "processing": {
+        "bg": "#dbeafe",
+        "text": "#1e40af",
+        "border": "#bfdbfe",
+        "usage": "Status 'Diproses'"
+      },
+      "danger": {
+        "bg": "#fee2e2",
+        "text": "#b91c1c",
+        "border": "#fecaca",
+        "usage": "Status 'Diambil' (or closed out), Pengeluaran, Hutang. Nod to old red (#d34545)"
+      }
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "card": "shadow-sm border border-slate-200",
+      "dropdown": "shadow-lg border border-slate-200",
+      "modal": "shadow-2xl border border-slate-200"
+    },
+    "borders": {
+      "radius": "rounded-lg",
+      "input": "border-slate-300 focus:border-sky-500 focus:ring-sky-500"
+    },
+    "surfaces": {
+      "sidebar": "bg-slate-900 text-slate-300",
+      "topbar": "bg-white border-b border-slate-200 sticky top-0 z-50",
+      "main_bg": "bg-slate-50"
+    }
+  },
+  "grids_layouts": {
+    "global_layout": {
+      "structure": "Persistent left sidebar (w-64) + Top bar (h-16) + Main content area.",
+      "spacing": "p-6 md:p-8 for main content blocks."
+    },
+    "dashboard_kpi": {
+      "grid": "grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 or gap-6",
+      "card_style": "bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between"
+    },
+    "pos_kasir": {
+      "layout": "2-column layout: Left (70%) for Product Grid/Search/Trade-in calculator, Right (30%) for Cart Summary & Checkout.",
+      "trade_in": "Dedicated section in POS to input Grade A/B/C/D and calculate final price dynamically."
+    },
+    "data_tables": {
+      "style": "Dense tabular layout. text-sm, compact padding (py-2 px-3). Sticky header.",
+      "numbers": "Always right-aligned with Geist Mono.",
+      "actions": "Action menus (Shadcn Dropdown) on the far right column."
+    }
+  },
+  "motion": {
+    "hover": "Transition on buttons and table rows (bg-slate-50). duration-200 ease-in-out.",
+    "modals": "Fade + subtle scale up (95% -> 100%).",
+    "sidebar": "Smooth width transition for collapse/expand."
+  },
+  "accessibility": {
+    "contrast": "All text must pass WCAG AA. Avoid transparent overlays on forms.",
+    "focus": "focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 on all inputs and buttons.",
+    "testing": "All interactive elements must have data-testid attributes (e.g., data-testid='kpi-penjualan-card', data-testid='pos-checkout-btn')."
+  },
+  "media": {
+    "image_urls": {
+      "login_background": {
+        "url": "https://images.unsplash.com/photo-1687197180710-b2b9484a3c5f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBhYnN0cmFjdCUyMGJsdWUlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc4NjE4NzEwOXww&ixlib=rb-4.1.0&q=85",
+        "description": "Modern abstract blue wavy lines for login page background",
+        "category": "auth"
+      }
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-sky-600 hover:bg-sky-700 text-white rounded-md px-4 py-2 font-medium transition-colors",
+      "secondary": "bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md px-4 py-2 font-medium transition-colors"
+    },
+    "status_badges": {
+      "antre": "bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full text-xs font-medium",
+      "diproses": "bg-blue-100 text-blue-800 border border-blue-200 px-2.5 py-0.5 rounded-full text-xs font-medium",
+      "selesai": "bg-green-100 text-green-800 border border-green-200 px-2.5 py-0.5 rounded-full text-xs font-medium",
+      "diambil": "bg-slate-100 text-slate-800 border border-slate-200 px-2.5 py-0.5 rounded-full text-xs font-medium"
+    },
+    "inputs": {
+      "style": "bg-white border border-slate-300 rounded-md px-3 py-2 text-sm focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Install and use Geist Mono for all tabular numbers, currency, and IDs. Install Instrument Serif for brand headers.",
+    "Use Phosphor Icons (or Lucide) for sidebar navigation.",
+    "Build the dashboard using standard Shadcn components heavily styled to match the clean, tight-density look.",
+    "Never use completely transparent backgrounds for dropdowns or modals.",
+    "Implement the POS (Kasir) view as a highly functional, low-padding dense interface since speed is critical for retail.",
+    "Implement Trade-In (Tukar Tambah) modal with clear Grade A/B/C/D calculator options.",
+    "Service jobs pipeline must use the specific status badge colors."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "You MUST NOT apply universal transition (e.g., transition: all). Add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container, i.e. do not add .App { text-align: center; } in the css file.",
+    "Every interaction needs micro-animations - hover states, transitions. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap, EXCEPT in the data-dense POS/Tables where utility overrules breathing room.",
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Use 'sonner' for toasts. Sonner components are located in /app/src/components/ui/sonner.js",
+    "Ensure the sidebar uses a dark theme (bg-slate-900) while the main dashboard uses a light theme (bg-slate-50) for maximum contrast and focus."
+  ]
+}
