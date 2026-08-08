@@ -3,3 +3,4 @@ frontend/.env
 *.env
 node_modules/
 frontend/node_modules/.cache/default-development/11.pack
+frontend/node_modules/.cache/default-development/3.pack

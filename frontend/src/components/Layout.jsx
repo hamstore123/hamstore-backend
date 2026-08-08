@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, Truck, Users, Boxes,
   Wrench, Tags, Smartphone, HandCoins, Receipt, CalendarClock,
   UserCog, ListTodo, Megaphone, TrendingUp, Zap, FileBarChart,
-  LogOut, Menu,
+  LogOut, Menu, Banknote, History, PackageSearch, ScrollText,
 } from "lucide-react";
 import logo from "@/assets/ham-logo.png";
 
@@ -55,12 +55,14 @@ export default function Layout({ children }) {
       </div>
       <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
         {NAV.map((item, i) => {
-          if (item.section)
+          if (item.section) {
+            if (item.owner && !isOwner) return null;
             return (
               <div key={i} className="px-2 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 {item.section}
               </div>
             );
+          }
           if (item.owner && !isOwner) return null;
           const Icon = item.icon;
           return (

@@ -432,6 +432,7 @@ async def create_product(body: ProductIn, user: dict = Depends(get_current_user)
     doc["id"] = new_id()
     doc["created_at"] = now_iso()
     await db.products.insert_one(doc)
+    await log_activity(user, "Tambah Produk", f"{doc.get('name')} · modal Rp {doc.get('cost_price', 0):,.0f} · jual Rp {doc.get('sell_price', 0):,.0f}", "produk")
     doc.pop("_id", None)
     return doc
 
@@ -529,6 +530,7 @@ async def create_sale(body: SaleIn, user: dict = Depends(get_current_user)):
         "date": now_iso(), "status": "paid" if body.paid >= total else "hutang",
     }
     await db.sales.insert_one(doc)
+    await log_activity(user, "Penjualan", f"{invoice} · {body.customer_name or 'Umum'} · Rp {total:,.0f}", "penjualan")
     for item in body.items:
         await db.products.update_one({"id": item.product_id}, {"$inc": {"stock": -item.qty}})
         await _log_stock(item.product_id, item.product_name, -item.qty, "sale", invoice, user["id"])
@@ -563,7 +565,14 @@ async def list_sales(start: Optional[str] = None, end: Optional[str] = None, use
         q["date"] = {}
         if start: q["date"]["$gte"] = start
         if end: q["date"]["$lte"] = end
-    return await db.sales.find(q, {"_id": 0}).sort("date", -1).to_list(2000)
+    rows = await db.sales.find(q, {"_id": 0}).sort("date", -1).to_list(2000)
+    if user.get("role") != "owner":
+        for r in rows:
+            r.pop("profit", None)
+            r.pop("total_cost", None)
+            for it in r.get("items", []):
+                it.pop("cost_price", None)
+    return rows
 
 
 @api.get("/sales/{sid}")
@@ -845,7 +854,7 @@ async def dashboard_summary(user: dict = Depends(get_current_user)):
     trend_list = [{"date": k, "total": v} for k, v in sorted(trend.items())]
 
     top_content = await db.content_posts.find({"status": {"$in": ["upload", "uploaded"]}}, {"_id": 0}).sort("views", -1).to_list(6)
-    return {
+    result = {
         "sales_today": sales_today, "sales_month": sales_month,
         "profit_month": profit_month + (ppob_month or 0) - (expense_month or 0),
         "gross_profit": profit_month, "ppob_profit": ppob_month, "expense_month": expense_month,
@@ -856,10 +865,14 @@ async def dashboard_summary(user: dict = Depends(get_current_user)):
         "trend_7d": trend_list,
         "top_content": top_content,
     }
+    if user.get("role") != "owner":
+        for k in ["profit_month", "gross_profit", "ppob_profit", "expense_month", "total_hutang", "total_piutang"]:
+            result.pop(k, None)
+    return result
 
 
 @api.get("/reports/profit-loss")
-async def report_pl(start: str, end: str, user: dict = Depends(get_current_user)):
+async def report_pl(start: str, end: str, user: dict = Depends(require_roles("owner"))):
     sales = await db.sales.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
     ppob = await db.ppob.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
     expenses = await db.expenses.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
@@ -1114,7 +1127,7 @@ async def delete_content_post(cid: str, user: dict = Depends(get_current_user)):
 
 # ---------------- Performance Summary ----------------
 @api.get("/performance/summary")
-async def performance_summary(start: Optional[str] = None, end: Optional[str] = None, user: dict = Depends(get_current_user)):
+async def performance_summary(start: Optional[str] = None, end: Optional[str] = None, user: dict = Depends(require_roles("owner"))):
     from collections import defaultdict
     start = start or (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     end = end or now_iso()
@@ -1307,6 +1320,125 @@ async def serve_file(path: str):
     rec = await db.files.find_one({"storage_path": path, "is_deleted": False})
     data, ct = get_object(path)
     return Response(content=data, media_type=(rec.get("content_type") if rec else None) or ct)
+
+
+# ---------------- Activity Log ----------------
+async def log_activity(user: dict, action: str, detail: str = "", category: str = "umum"):
+    try:
+        await db.activity_logs.insert_one({
+            "id": new_id(), "user_id": user.get("id"), "user_name": user.get("name"),
+            "role": user.get("role"), "action": action, "detail": detail,
+            "category": category, "date": now_iso(),
+        })
+    except Exception:
+        pass
+
+
+@api.get("/activity-logs")
+async def list_activity_logs(limit: int = 300, user: dict = Depends(require_roles("owner"))):
+    return await db.activity_logs.find({}, {"_id": 0}).sort("date", -1).to_list(limit)
+
+
+# ---------------- Cash Drawer / Shift ----------------
+class ShiftOpenIn(BaseModel):
+    opening_cash: float = 0
+    note: Optional[str] = ""
+
+
+class ShiftCloseIn(BaseModel):
+    cash_actual: float = 0
+    edc_actual: float = 0
+    brilink_actual: float = 0
+    bank_actual: float = 0
+    note: Optional[str] = ""
+
+
+@api.get("/shifts/current")
+async def current_shift(user: dict = Depends(get_current_user)):
+    return await db.shifts.find_one({"opened_by": user["id"], "status": "open"}, {"_id": 0})
+
+
+@api.post("/shifts/open")
+async def open_shift(body: ShiftOpenIn, user: dict = Depends(get_current_user)):
+    if await db.shifts.find_one({"opened_by": user["id"], "status": "open"}):
+        raise HTTPException(400, "Masih ada shift yang terbuka. Tutup dulu.")
+    doc = {
+        "id": new_id(), "opened_by": user["id"], "opened_by_name": user["name"],
+        "opening_cash": body.opening_cash, "note": body.note,
+        "opened_at": now_iso(), "status": "open",
+    }
+    await db.shifts.insert_one(doc)
+    await log_activity(user, "Buka Shift", f"Modal laci awal Rp {body.opening_cash:,.0f}", "shift")
+    doc.pop("_id", None)
+    return doc
+
+
+@api.post("/shifts/close")
+async def close_shift(body: ShiftCloseIn, user: dict = Depends(get_current_user)):
+    shift = await db.shifts.find_one({"opened_by": user["id"], "status": "open"})
+    if not shift:
+        raise HTTPException(400, "Tidak ada shift terbuka")
+    start, end = shift["opened_at"], now_iso()
+    sales = await db.sales.find({"cashier_id": user["id"], "date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
+    ppob = await db.ppob.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
+    by_method = {"cash": 0.0, "transfer": 0.0, "hutang": 0.0}
+    for s in sales:
+        m = s.get("payment_method", "cash")
+        by_method[m] = by_method.get(m, 0) + s.get("paid", 0)
+    ppob_cash = sum(p.get("price", 0) for p in ppob if p.get("payment_method", "cash") == "cash")
+    cash_sales = by_method.get("cash", 0) + ppob_cash
+    expected_cash = shift["opening_cash"] + cash_sales
+    total_actual = body.cash_actual + body.edc_actual + body.brilink_actual + body.bank_actual
+    updates = {
+        "status": "closed", "closed_at": end, "closed_by_name": user["name"],
+        "cash_sales": cash_sales, "transfer_sales": by_method.get("transfer", 0),
+        "ppob_total": sum(p.get("price", 0) for p in ppob),
+        "expected_cash": expected_cash,
+        "cash_actual": body.cash_actual, "edc_actual": body.edc_actual,
+        "brilink_actual": body.brilink_actual, "bank_actual": body.bank_actual,
+        "total_actual": total_actual, "cash_diff": body.cash_actual - expected_cash,
+        "sales_count": len(sales), "close_note": body.note,
+    }
+    await db.shifts.update_one({"id": shift["id"]}, {"$set": updates})
+    await log_activity(user, "Tutup Shift", f"Selisih kas Rp {updates['cash_diff']:,.0f}", "shift")
+    return {"ok": True, "id": shift["id"], **updates}
+
+
+@api.get("/shifts")
+async def list_shifts(user: dict = Depends(get_current_user)):
+    q = {} if user.get("role") == "owner" else {"opened_by": user["id"]}
+    return await db.shifts.find(q, {"_id": 0}).sort("opened_at", -1).to_list(500)
+
+
+# ---------------- Stock Analysis (barang lama) ----------------
+@api.get("/stock/analysis")
+async def stock_analysis(days: int = 30, user: dict = Depends(get_current_user)):
+    from datetime import datetime as _dt, timezone as _tz
+    prods = await db.products.find({"stock": {"$gt": 0}}, {"_id": 0}).to_list(5000)
+    now = _dt.now(_tz.utc)
+    old, tied = [], 0.0
+    for p in prods:
+        ca = p.get("created_at")
+        if not ca:
+            continue
+        try:
+            d = _dt.fromisoformat(str(ca).replace("Z", "+00:00"))
+            if d.tzinfo is None:
+                d = d.replace(tzinfo=_tz.utc)
+        except Exception:
+            continue
+        age = (now - d).days
+        if age >= days:
+            modal = (p.get("cost_price", 0) or 0) * (p.get("stock", 0) or 0)
+            tied += modal
+            old.append({
+                "id": p["id"], "name": p.get("name"), "imei": p.get("imei"),
+                "brand": p.get("brand"), "stock": p.get("stock"),
+                "cost_price": p.get("cost_price"), "modal": modal,
+                "created_at": ca, "age_days": age,
+            })
+    old.sort(key=lambda x: x["age_days"], reverse=True)
+    return {"days": days, "count": len(old), "total_modal": tied, "items": old}
 
 
 # ---------------- Include & CORS ----------------

@@ -1,0 +1,35 @@
+{
+  "summary": "New-round testing (RBAC owner/staff, Cash Drawer, Analisis Stok, Log Aktivitas, Riwayat Penjualan + Nota WA). Backend: 12/12 new tests pass (RBAC 403s for staff on /reports/profit-loss, /performance/summary, /activity-logs; dashboard profit fields stripped for staff, present for owner; /sales strips profit/total_cost/items.cost_price for staff; /activity-logs works for owner; /stock/analysis works for days=30/60/90; /shifts open->current->duplicate-blocked->close->history lifecycle verified end-to-end). Frontend: all pages load and data-testids present. Owner: opening-cash+open-shift-btn -> close-shift-btn (4 inputs) -> Riwayat Shift row added (2->3). Analisis Stok filters days-30/60/90 all switch (current Atlas has no old stock -> old-count=0 unit, tied-capital=Rp 0, acceptable). Log Aktivitas shows 4+ rows for owner including 'Buka Shift'/'Tutup Shift'. Riwayat Penjualan owner: sales-profit-card=1, Laba header=1, 8 nota-<id> buttons; dialog opens with nota-name/nota-phone/nota-send + live HAM STORE preview. Staff: sales-profit-card=0 and Laba header=0 (correctly stripped). Direct navigation to /laporan, /log-aktivitas, /kinerja, /pembelian, /staf, /pengeluaran as staff correctly redirects to '/'. Allowed staff routes (/cash-drawer, /analisis-stok, /riwayat-penjualan, /kasir, /produk) are accessible.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Layout.jsx NAV", "issue": "Staff sidebar LEAKS owner-only items — visible to staf@tokohp.com: nav-laporan, nav-kinerja, nav-pembelian, nav-supplier, nav-hutang-piutang, nav-pengeluaran. OwnerRoute correctly redirects on click, but the sidebar entries should be hidden (only /staf currently has owner:true). Add owner:true to: /pembelian, /supplier, /hutang-piutang, /pengeluaran, /kinerja, /laporan. Also gate the 'Laporan' section header with owner:true (section owner-gating logic already exists in Layout.jsx line 59).", "selector": "[data-testid='nav-laporan'], nav-kinerja, nav-pembelian, nav-supplier, nav-hutang-piutang, nav-pengeluaran", "priority": "HIGH"},
+      {"component": "Layout.jsx NAV", "issue": "Sidebar is missing entries for new-round pages that DO exist as routes: /cash-drawer, /riwayat-penjualan, /analisis-stok, and /log-aktivitas (owner-only). Users cannot navigate to them from the sidebar; only via direct URL. Add nav items (Log Aktivitas with owner:true).", "selector": "nav-cash-drawer / nav-riwayat-penjualan / nav-analisis-stok / nav-log-aktivitas (all missing)", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_rbac_shifts_stock.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/rbac_shifts.xml"
+  ],
+  "action_items": [
+    "Layout.jsx: mark these NAV items as owner:true — /pembelian, /supplier, /hutang-piutang, /pengeluaran, /kinerja, /laporan (and add owner:true to the 'Laporan' section header) so staff sidebar hides them.",
+    "Layout.jsx: add missing NAV entries — /cash-drawer, /riwayat-penjualan, /analisis-stok (visible to both roles) and /log-aktivitas (owner:true)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is >1500 lines — consider splitting by domain (auth, sales, shifts, reports, stock, activity).",
+    "RBAC is enforced server-side (require_roles) and by OwnerRoute client-side, but NAV visibility is only partial — the third element of ROUTES (owner:true) is correctly used by App.js, but Layout.jsx NAV is a separate list that hasn't been updated in sync. Consider deriving the NAV owner-flag from ROUTES or centralising the RBAC config."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_rbac_shifts_stock.py (new)"
+  ],
+  "success_rate": {"backend": "100% (12/12 new + prior suite still green)", "frontend": "~85% (functional protection works; sidebar visibility bug)"},
+  "test_credentials": "Owner: admin@tokohp.com/admin123 · Staff: staf@tokohp.com/staf123 (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "One shift opened+closed as owner (opening_cash=50000, all-zero close) — allowed per review_request. Backend test test_shift_open_close_flow also opens+closes one shift. Riwayat Shift went from 2 -> 3 rows in UI. No products/customers/sales/expenses were written.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend RBAC + shifts + stock/analysis + activity-logs are fully verified via /app/backend/tests/test_rbac_shifts_stock.py. Frontend routes protection (OwnerRoute) works — direct visits to /laporan, /log-aktivitas, /kinerja, /pembelian, /staf, /pengeluaran as staff redirect to '/'. Remaining issue is purely NAV visibility in Layout.jsx: add owner:true flags to Pembelian/Supplier/Hutang-Piutang/Pengeluaran/Kinerja/Laporan and add missing nav items for Cash Drawer, Riwayat Penjualan, Analisis Stok, Log Aktivitas (last one owner:true). No backend action needed.",
+  "rca of the issue": "Layout.jsx keeps its own NAV array that is not derived from ROUTES in App.js. When the new-round owner-only endpoints were added, ROUTES was updated with the third-tuple element (true) and OwnerRoute correctly redirects staff, but the corresponding NAV items in Layout.jsx were not flagged with owner:true (except /staf). Result: staff still sees the owner links in the sidebar even though clicking them redirects. Fix: add owner:true to the 6 NAV entries listed above and add the 4 missing new-round nav items."
+}

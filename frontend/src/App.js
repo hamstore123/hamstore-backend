@@ -23,6 +23,10 @@ import Tasks from "@/pages/Tasks";
 import ContentSchedule from "@/pages/ContentSchedule";
 import Performance from "@/pages/Performance";
 import Reports from "@/pages/Reports";
+import CashDrawer from "@/pages/CashDrawer";
+import SalesHistory from "@/pages/SalesHistory";
+import StockAnalysis from "@/pages/StockAnalysis";
+import ActivityLog from "@/pages/ActivityLog";
 
 const Protected = ({ children }) => {
   const { user } = useAuth();
@@ -30,26 +34,37 @@ const Protected = ({ children }) => {
   return <Layout>{children}</Layout>;
 };
 
+const OwnerRoute = ({ children }) => {
+  const { user, isOwner } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!isOwner) return <Layout><Navigate to="/" replace /></Layout>;
+  return <Layout>{children}</Layout>;
+};
+
 const ROUTES = [
   ["/", Dashboard],
   ["/kasir", Kasir],
-  ["/pembelian", Purchases],
+  ["/riwayat-penjualan", SalesHistory],
+  ["/cash-drawer", CashDrawer],
   ["/ppob", PPOB],
+  ["/pembelian", Purchases, true],
   ["/produk", Products],
   ["/stok", Stock],
+  ["/analisis-stok", StockAnalysis],
   ["/harga-hp", HpPrices],
   ["/service", Services],
   ["/harga-service", ServicePrices],
   ["/pelanggan", Customers],
-  ["/supplier", Suppliers],
-  ["/hutang-piutang", Debts],
-  ["/pengeluaran", Expenses],
+  ["/supplier", Suppliers, true],
+  ["/hutang-piutang", Debts, true],
+  ["/pengeluaran", Expenses, true],
   ["/absensi", Attendance],
-  ["/staf", Staff],
+  ["/staf", Staff, true],
   ["/jobdesk", Tasks],
   ["/konten", ContentSchedule],
-  ["/kinerja", Performance],
-  ["/laporan", Reports],
+  ["/kinerja", Performance, true],
+  ["/log-aktivitas", ActivityLog, true],
+  ["/laporan", Reports, true],
 ];
 
 function App() {
@@ -59,8 +74,12 @@ function App() {
         <Toaster position="top-right" richColors />
         <Routes>
           <Route path="/login" element={<Login />} />
-          {ROUTES.map(([path, C]) => (
-            <Route key={path} path={path} element={<Protected><C /></Protected>} />
+          {ROUTES.map(([path, C, owner]) => (
+            <Route
+              key={path}
+              path={path}
+              element={owner ? <OwnerRoute><C /></OwnerRoute> : <Protected><C /></Protected>}
+            />
           ))}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
