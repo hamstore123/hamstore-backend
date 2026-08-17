@@ -72,6 +72,7 @@ JWT_ALG = "HS256"
 # For staff role enforcement: staff users (role 'staf' or 'staff') are only allowed
 # to access a restricted set of API prefixes. All other API paths will return 403.
 STAFF_ALLOWED_PREFIXES = [
+    "/api/auth",
     "/api/sales",
     "/api/shifts",
     "/api/ppob",

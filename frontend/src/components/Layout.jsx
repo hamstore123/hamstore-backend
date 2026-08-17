@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard, Package, ShoppingCart, Truck, Users, Boxes,
@@ -65,11 +66,11 @@ export default function Layout({ children }) {
     "/konten",
   ]);
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
+  const location = useLocation();
 
   const Sidebar = (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full shrink-0">
-      <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-800">
+    <aside className="w-64 sidebar-shell text-slate-300 flex flex-col h-full shrink-0">
+      <div className="h-16 flex items-center gap-3 px-5 border-b border-white/10 sidebar-brand">
         <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center p-1 shrink-0">
           <img src={logo} alt="HAM Store" className="w-full h-full object-contain" />
         </div>
@@ -99,8 +100,8 @@ export default function Layout({ children }) {
               onClick={() => setOpen(false)}
               data-testid={`nav-${item.to.replace(/\//g, "") || "dashboard"}`}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                  isActive ? "bg-sky-600 text-white font-medium" : "hover:bg-slate-800 hover:text-white"
+                `nav-item flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 ${
+                  isActive ? "nav-item-active text-white font-medium" : "hover:bg-white/10 hover:text-white"
                 }`
               }
             >
@@ -119,11 +120,17 @@ export default function Layout({ children }) {
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-0 h-full">{Sidebar}</div>
+          <motion.div
+            initial={{ x: -280, opacity: 0.7 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -280, opacity: 0.7 }}
+            transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            className="absolute left-0 top-0 h-full"
+          >{Sidebar}</motion.div>
         </div>
       )}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40">
+        <header className="h-16 app-topbar flex items-center justify-between px-4 md:px-6 sticky top-0 z-40">
           <button className="lg:hidden p-2" onClick={() => setOpen(true)} data-testid="mobile-menu-btn">
             <Menu className="w-5 h-5" />
           </button>
@@ -135,7 +142,7 @@ export default function Layout({ children }) {
               <div className="text-sm font-medium text-slate-800">{user?.name}</div>
               <div className="text-[11px] uppercase text-sky-600 font-semibold">{user?.role}</div>
             </div>
-            <div className="w-9 h-9 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-semibold">
+            <div className="w-9 h-9 rounded-xl avatar-chip flex items-center justify-center font-semibold">
               {user?.name?.[0]?.toUpperCase()}
             </div>
             <button
@@ -148,7 +155,13 @@ export default function Layout({ children }) {
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        <motion.main
+          key={location.pathname}
+          initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+          className="flex-1 overflow-y-auto app-main p-4 md:p-6"
+        >{children}</motion.main>
       </div>
     </div>
   );
