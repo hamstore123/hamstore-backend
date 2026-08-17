@@ -1905,14 +1905,18 @@ async def stock_summary(user: dict = Depends(get_current_user)):
     }
 
 
-# ---------------- Include & CORS ----------------
+# ---------------- Include & CORS
 app.include_router(api)
 
+cors_origins = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ORIGINS", "").split(",")
+    if origin.strip() and origin.strip() != "*"
+]
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_origins=["*"],
-    allow_origin_regex=".*",
     allow_methods=["*"],
     allow_headers=["*"],
 )

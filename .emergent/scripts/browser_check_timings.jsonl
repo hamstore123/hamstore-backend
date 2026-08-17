@@ -1,0 +1,1 @@
+{"ts": "2026-08-17T17:53:54", "name": "login-admin-e2e", "mode": "ran-inline", "url": "http://localhost:3000/login", "passed": false, "total_ms": 1477, "pw_import_ms": 759, "launch_ms": null, "first_goto_ms": null, "body_ms": null, "body_gotos": []}

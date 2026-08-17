@@ -126,6 +126,21 @@
 ##       - working: true
 ##         agent: "testing"
 ##         comment: "Auth flow verification complete (9/9 tests passed): Owner login/logout/me working, Staff login/logout/me working, RBAC correct (staff blocked from /reports/profit-loss, can access /products and /dashboard/summary). httpOnly cookies set correctly, bcrypt hash format correct ($2b$), CORS allow_credentials=true, frontend axios withCredentials=true. Minor: /performance/summary takes 15s (performance issue, not auth bug)."
+##   - task: "CORS credentials allowlist"
+##     implemented: true
+##     working: false
+##     file: "/app/backend/server.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "Mengganti wildcard CORS dan allow_origin_regex dengan parsing CORS_ORIGINS per domain; perlu verifikasi preflight dari https://hamstoretegal.com. Nilai env tidak diubah karena konfigurasi URL dilindungi."
+##       - working: false
+##         agent: "testing"
+##         comment: "CODE IMPLEMENTATION: ✓ CORRECT (7/7 tests passed) - No hardcoded allow_origins=['*'], no allow_origin_regex, reads from os.environ CORS_ORIGINS, splits by comma, strips whitespace, filters wildcards, allow_credentials=True present. DEPLOYMENT ENVIRONMENT: ✗ CRITICAL ISSUE - CORS_ORIGINS='*' in /app/backend/.env line 3 gets filtered out by code, resulting in EMPTY allowed origins list []. ALL cross-origin requests from https://hamstoretegal.com and other origins are REJECTED (no Access-Control-Allow-Origin header in response). Preflight OPTIONS requests return 400 Bad Request. DISTINCTION: Code fix is complete and correct; deployment env configuration needs update. RECOMMENDED FIX: Update /app/backend/.env CORS_ORIGINS='https://hamstoretegal.com,https://www.hamstoretegal.com' for production, or CORS_ORIGINS='https://phone-shop-hub-18.preview.emergentagent.com' for testing environment. Verified code logic works correctly when proper origins provided (tested with temporary env var)."
+
 ## frontend:
 ##   - task: "Modern animated visual system"
 ##     implemented: true
@@ -147,12 +162,12 @@
 
 ## metadata:
 ##   created_by: "main_agent"
-##   version: "1.2"
-##   test_sequence: 2
+##   version: "1.3"
+##   test_sequence: 3
 ##   run_ui: true
 ## test_plan:
 ##   current_focus:
-##     - "All tests complete"
+##     - "CORS credentials allowlist - deployment env config"
 ##   stuck_tasks: []
 ##   test_all: false
 ##   test_priority: "high_first"
@@ -165,3 +180,5 @@
 ##     message: "Auth verification complete after frontend .env restore and axios withCredentials fix. ALL AUTH TESTS PASSED (9/9): ✓ Owner login/logout/me, ✓ Staff login/logout/me, ✓ RBAC working (staff blocked from owner-only routes, can access allowed routes), ✓ httpOnly cookies set, ✓ bcrypt $2b$ format, ✓ CORS credentials enabled, ✓ frontend axios withCredentials. Backend login correctly receives credentials and returns tokens. No auth failures detected. Minor: /performance/summary endpoint has 15s response time (performance issue, not auth bug). Login bug RESOLVED."
 ##   - agent: "testing"
 ##     message: "Frontend UI testing complete. Tested owner and staff login flows through browser automation. NO LOGIN BUGS FOUND - both accounts login successfully without errors, API requests use correct backend URL (no undefined/api requests), no console errors. Redesign elements verified: sidebar gradient, page entrance animations, button transitions, mobile menu animation all working. RBAC working correctly for staff. Minor UI issue: staff don't see Dashboard nav item in sidebar (STAFF_ALLOWED set missing '/' in Layout.jsx), but can access dashboard page. All critical functionality PASS. Ready for user acceptance."
+##   - agent: "testing"
+##     message: "CORS credentials allowlist testing complete. CODE FIX: ✓ VERIFIED CORRECT - server.py lines 1911-1922 properly implements: reads CORS_ORIGINS from environment, splits by comma, strips whitespace, filters out wildcards (origin.strip() != '*'), allow_credentials=True enabled, no hardcoded allow_origins=['*'], no allow_origin_regex. DEPLOYMENT CONFIG: ✗ CRITICAL - /app/backend/.env line 3 has CORS_ORIGINS='*' which gets filtered out by the code, resulting in empty allowed origins list []. This causes ALL cross-origin requests to be REJECTED. Tested preflight requests from https://hamstoretegal.com, https://www.hamstoretegal.com, https://hamstore-backend-production.up.railway.app, https://phone-shop-hub-18.preview.emergentagent.com - all return no Access-Control-Allow-Origin header (rejected). Runtime check confirms cors_origins=[] after filtering. Code logic verified working correctly with test env vars. DISTINCTION: Code implementation is production-ready; deployment environment variable needs update. Main agent should update CORS_ORIGINS in .env to actual domain list (not '*') for production deployment."
