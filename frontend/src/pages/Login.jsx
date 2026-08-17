@@ -43,7 +43,7 @@ export default function Login() {
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
-        <form onSubmit={submit} className="w-full max-w-sm" data-testid="login-form" autoComplete="off">
+        <form onSubmit={submit} className="w-full max-w-sm fade-up card p-6" data-testid="login-form" autoComplete="off">
           {/* hidden fields to discourage browser autofill */}
           <input type="text" name="fakeusernameremembered" style={{ display: "none" }} />
           <input type="password" name="fakepasswordremembered" style={{ display: "none" }} />

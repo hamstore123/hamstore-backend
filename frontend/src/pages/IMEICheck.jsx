@@ -4,18 +4,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { SkeletonTable } from "@/components/common";
 
 export default function IMEICheck() {
   const [imei, setImei] = useState("");
   const [note, setNote] = useState("");
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
 
   const load = async () => {
+    setLoading(true);
     try {
       const { data } = await api.get("/imei-history", { params: q ? { q } : {} });
       setRows(data.items || []);
     } catch (e) { toast.error("Gagal memuat riwayat"); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
@@ -95,7 +99,11 @@ export default function IMEICheck() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map((r) => (
+              {loading ? (
+                <tr><td colSpan={5}><SkeletonTable rows={4} cols={5} /></td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={5} className="p-4 text-slate-500">Belum ada riwayat</td></tr>
+              ) : rows.map((r) => (
                 <tr key={r.id}>
                   <td className="px-4 py-2">{r.imei}</td>
                   <td className="px-4 py-2">{r.result || r.note || "-"}</td>
@@ -106,9 +114,6 @@ export default function IMEICheck() {
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && (
-                <tr><td colSpan={5} className="p-4 text-slate-500">Belum ada riwayat</td></tr>
-              )}
             </tbody>
           </table>
         </div>

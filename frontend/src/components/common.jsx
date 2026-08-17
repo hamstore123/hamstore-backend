@@ -16,6 +16,20 @@ export const Loading = () => (
   </div>
 );
 
+export const SkeletonTable = ({ rows = 6, cols = 6 }) => (
+  <div className="animate-pulse">
+    <div className="p-4">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex gap-3 items-center py-3">
+          {Array.from({ length: cols }).map((__, j) => (
+            <div key={j} className="h-4 bg-slate-200 rounded w-full" style={{ minWidth: 40 }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 export const Empty = ({ text = "Belum ada data" }) => (
   <div className="text-center py-16 text-slate-400 text-sm">{text}</div>
 );

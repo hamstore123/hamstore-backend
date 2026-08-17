@@ -321,6 +321,8 @@ class DebtIn(BaseModel):
 class DebtPaymentIn(BaseModel):
     amount: float
     note: Optional[str] = ""
+    date: Optional[str] = None
+    method: Optional[str] = "cash"
 
 
 class AttendanceIn(BaseModel):
@@ -974,21 +976,31 @@ async def pay_debt(did: str, body: DebtPaymentIn, user: dict = Depends(get_curre
     debt = await db.debts.find_one({"id": did})
     if not debt:
         raise HTTPException(404, "Not found")
+    # allow specifying payment date and method; date defaults to now
+    pay_date = body.date or now_iso()
     new_paid = debt.get("paid", 0) + body.amount
     remaining = debt["amount"] - new_paid
     status = "paid" if remaining <= 0 else "open"
     await db.debts.update_one({"id": did}, {"$set": {"paid": new_paid, "remaining": max(0, remaining), "status": status}})
-    await db.debt_payments.insert_one({
+    payment_doc = {
         "id": new_id(), "debt_id": did, "amount": body.amount, "note": body.note,
-        "date": now_iso(), "user_id": user["id"],
-    })
-    return {"ok": True, "remaining": max(0, remaining)}
+        "date": pay_date, "user_id": user["id"], "user_name": user.get("name"), "method": body.method or "cash", "remaining_after": max(0, remaining)
+    }
+    await db.debt_payments.insert_one(payment_doc)
+    return {"ok": True, "remaining": max(0, remaining), "payment": payment_doc}
 
 
 @api.delete("/debts/{did}")
 async def delete_debt(did: str, user: dict = Depends(get_current_user)):
     await db.debts.delete_one({"id": did})
     return {"ok": True}
+
+
+@api.get("/debts/{did}/payments")
+async def list_debt_payments(did: str, user: dict = Depends(get_current_user)):
+    # return payments for a debt ordered by date asc
+    items = await db.debt_payments.find({"debt_id": did}, {"_id": 0}).sort("date", 1).to_list(1000)
+    return {"items": items}
 
 
 # ---------------- Attendance ----------------

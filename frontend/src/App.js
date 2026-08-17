@@ -11,6 +11,7 @@ import Purchases from "@/pages/Purchases";
 import PPOB from "@/pages/PPOB";
 import Stock from "@/pages/Stock";
 import HpPrices from "@/pages/HpPrices";
+import Assets from "@/pages/Assets";
 import Services from "@/pages/Services";
 import ServicePrices from "@/pages/ServicePrices";
 import Customers from "@/pages/Customers";
@@ -53,6 +54,7 @@ const ROUTES = [
   ["/stok", Stock],
   ["/analisis-stok", StockAnalysis],
   ["/harga-hp", HpPrices],
+  ["/aset", Assets],
   ["/service", Services],
   ["/harga-service", ServicePrices],
   ["/pelanggan", Customers],

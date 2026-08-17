@@ -54,6 +54,8 @@ export default function Layout({ children }) {
     "/stok",
     "/analisis-stok",
     "/harga-hp",
+    "/aset",
+    "/imei",
     "/service",
     "/harga-service",
     "/pelanggan",

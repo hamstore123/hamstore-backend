@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { fmtIDR, fileUrl } from "@/lib/api";
-import { PageHeader, Loading, Empty } from "@/components/common";
+import { PageHeader, Loading, Empty, SkeletonTable } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -244,9 +244,9 @@ export default function CrudResource({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={columns.length + 1}><Loading /></td></tr>
+                <tr><td colSpan={columns.length + 1}><SkeletonTable rows={6} cols={columns.length + 1} /></td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={columns.length + 1}><Empty /></td></tr>
+                <tr><td colSpan={columns.length + 1}><Empty text={`Belum ada ${String(title || '').toLowerCase()}`} /></td></tr>
               ) : rows.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50 transition-colors">
                   {columns.map((c) => (
@@ -285,71 +285,75 @@ export default function CrudResource({
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[80vh]">
-          <DialogHeader><DialogTitle>{editing ? "Edit" : "Tambah"} {title}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-2 overflow-y-auto" style={{ maxHeight: '60vh' }}>
-            {fields.map((f) => (
-              <div key={f.name} className={f.full ? "col-span-2" : "col-span-1"}>
-                <Label className="text-xs text-slate-500">{f.label}{f.required && " *"}</Label>
-                {f.type === "select" ? (
-                  <Select value={String(form[f.name] ?? "")} onValueChange={(v) => setForm({ ...form, [f.name]: v })}>
-                    <SelectTrigger className="mt-1" data-testid={`field-${f.name}`}><SelectValue placeholder="Pilih" /></SelectTrigger>
-                    <SelectContent>
-                      {(dynamicOptions[f.name] || f.options || []).map((o) => (
-                        <SelectItem key={o.value ?? o} value={String(o.value ?? o)}>{o.label ?? o}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : f.type === "supplier" ? (
-                  <div className="mt-1 flex gap-2 items-center">
-                    <Select value={String(form[f.name] ?? "")} onValueChange={(v) => setForm({ ...form, [f.name]: v })}>
-                      <SelectTrigger className="mt-1" data-testid={`field-${f.name}`}><SelectValue placeholder="Pilih supplier" /></SelectTrigger>
-                      <SelectContent>
-                        {(dynamicOptions[f.name] || []).map((o) => (
-                          <SelectItem key={o.value ?? o} value={String(o.value ?? o)}>{o.label ?? o}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="outline" onClick={() => { setSupplierField(f.name); setSupplierForm({ name: "", phone: "", address: "" }); setSupplierOpen(true); }}>
-                      Tambah
-                    </Button>
-                  </div>
-                ) : f.type === "image" ? (
-                  <div className="mt-1 flex items-center gap-3">
-                    {form[f.name]
-                      ? <img src={fileUrl(form[f.name])} alt="" className="w-16 h-16 rounded-lg object-cover border border-slate-200" />
-                      : <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 text-[10px]">No Img</div>}
-                    <input type="file" accept="image/*" onChange={(e) => uploadImage(e, f.name)} data-testid={`field-${f.name}`} className="text-xs" />
-                    {uploading && <span className="text-xs text-slate-400">Mengupload...</span>}
-                  </div>
-                ) : f.scannable ? (
-                  <div className="mt-1 flex gap-2">
-                    <Input type="text" value={form[f.name] ?? ""} onChange={(e) => setForm({ ...form, [f.name]: e.target.value })} data-testid={`field-${f.name}`} />
-                    <Button type="button" variant="outline" className="shrink-0" onClick={() => setScan({ field: f.name })} data-testid={`scan-${f.name}`}>
-                      <ScanLine className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Input
-                    type={f.type === "number" ? "number" : f.type === "color" ? "color" : "text"}
-                    value={form[f.name] ?? ""}
-                    onChange={(e) => setForm({ ...form, [f.name]: e.target.value })}
-                    className="mt-1" data-testid={`field-${f.name}`}
-                  />
-                )}
+            <div className="flex flex-col" style={{ maxHeight: '70vh' }}>
+              <DialogHeader><DialogTitle>{editing ? "Edit" : "Tambah"} {title}</DialogTitle></DialogHeader>
+              <div className="overflow-auto flex-1" style={{ paddingBottom: 'calc(var(--save-footer-height) + 12px)' }}>
+                <div className="grid grid-cols-2 gap-4 py-2" style={{ maxHeight: '60vh' }}>
+                  {fields.map((f) => (
+                    <div key={f.name} className={f.full ? "col-span-2" : "col-span-1"}>
+                      <Label className="text-xs text-slate-500">{f.label}{f.required && " *"}</Label>
+                      {f.type === "select" ? (
+                        <Select value={String(form[f.name] ?? "")} onValueChange={(v) => setForm({ ...form, [f.name]: v })}>
+                          <SelectTrigger className="mt-1" data-testid={`field-${f.name}`}><SelectValue placeholder="Pilih" /></SelectTrigger>
+                          <SelectContent>
+                            {(dynamicOptions[f.name] || f.options || []).map((o) => (
+                              <SelectItem key={o.value ?? o} value={String(o.value ?? o)}>{o.label ?? o}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : f.type === "supplier" ? (
+                        <div className="mt-1 flex gap-2 items-center">
+                          <Select value={String(form[f.name] ?? "")} onValueChange={(v) => setForm({ ...form, [f.name]: v })}>
+                            <SelectTrigger className="mt-1" data-testid={`field-${f.name}`}><SelectValue placeholder="Pilih supplier" /></SelectTrigger>
+                            <SelectContent>
+                              {(dynamicOptions[f.name] || []).map((o) => (
+                                <SelectItem key={o.value ?? o} value={String(o.value ?? o)}>{o.label ?? o}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button type="button" variant="outline" onClick={() => { setSupplierField(f.name); setSupplierForm({ name: "", phone: "", address: "" }); setSupplierOpen(true); }}>
+                            Tambah
+                          </Button>
+                        </div>
+                      ) : f.type === "image" ? (
+                        <div className="mt-1 flex items-center gap-3">
+                          {form[f.name]
+                            ? <img src={fileUrl(form[f.name])} alt="" className="w-16 h-16 rounded-lg object-cover border border-slate-200" />
+                            : <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 text-[10px]">No Img</div>}
+                          <input type="file" accept="image/*" onChange={(e) => uploadImage(e, f.name)} data-testid={`field-${f.name}`} className="text-xs" />
+                          {uploading && <span className="text-xs text-slate-400">Mengupload...</span>}
+                        </div>
+                      ) : f.scannable ? (
+                        <div className="mt-1 flex gap-2">
+                          <Input type="text" value={form[f.name] ?? ""} onChange={(e) => setForm({ ...form, [f.name]: e.target.value })} data-testid={`field-${f.name}`} />
+                          <Button type="button" variant="outline" className="shrink-0" onClick={() => setScan({ field: f.name })} data-testid={`scan-${f.name}`}>
+                            <ScanLine className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Input
+                          type={f.type === "number" ? "number" : f.type === "color" ? "color" : "text"}
+                          value={form[f.name] ?? ""}
+                          onChange={(e) => setForm({ ...form, [f.name]: e.target.value })}
+                          className="mt-1" data-testid={`field-${f.name}`}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-          <div className="save-footer">
-            <div style={{ marginRight: 'auto' }}>
-              <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+              <div className="save-footer">
+                <div style={{ marginRight: 'auto' }}>
+                  <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+                </div>
+                <div>
+                  <Button onClick={save} disabled={saving} className="bg-sky-600 hover:bg-sky-700 btn-shadow" data-testid="crud-save-btn">
+                    {saving ? "Menyimpan..." : "Simpan"}
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div>
-              <Button onClick={save} disabled={saving} className="bg-sky-600 hover:bg-sky-700 btn-shadow" data-testid="crud-save-btn">
-                {saving ? "Menyimpan..." : "Simpan"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
+          </DialogContent>
       </Dialog>
 
       <Dialog open={supplierOpen} onOpenChange={setSupplierOpen}>
