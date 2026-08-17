@@ -39,10 +39,29 @@ const NAV = [
   { to: "/log-aktivitas", label: "Log Aktivitas", icon: ScrollText, owner: true },
   { section: "Laporan", owner: true },
   { to: "/laporan", label: "Laporan Keuangan", icon: FileBarChart, owner: true },
+  { to: "/aset", label: "Aset Toko", icon: Boxes },
+  { to: "/imei", label: "Cek IMEI", icon: PackageSearch },
 ];
 
 export default function Layout({ children }) {
-  const { user, logout, isOwner } = useAuth();
+  const { user, logout, isOwner, isStaff } = useAuth();
+  const STAFF_ALLOWED = new Set([
+    "/kasir",
+    "/riwayat-penjualan",
+    "/cash-drawer",
+    "/ppob",
+    "/produk",
+    "/stok",
+    "/analisis-stok",
+    "/harga-hp",
+    "/service",
+    "/harga-service",
+    "/pelanggan",
+    "/pengeluaran",
+    "/absensi",
+    "/jobdesk",
+    "/konten",
+  ]);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -58,7 +77,7 @@ export default function Layout({ children }) {
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
-        {NAV.map((item, i) => {
+          {NAV.map((item, i) => {
           if (item.section) {
             if (item.owner && !isOwner) return null;
             return (
@@ -67,7 +86,8 @@ export default function Layout({ children }) {
               </div>
             );
           }
-          if (item.owner && !isOwner) return null;
+            if (item.owner && !isOwner) return null;
+            if (isStaff && item.to && !STAFF_ALLOWED.has(item.to)) return null;
           const Icon = item.icon;
           return (
             <NavLink

@@ -5,6 +5,7 @@ import { PageHeader, Loading, Empty } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { buildNota, openWhatsApp } from "@/lib/waNota";
@@ -16,9 +17,20 @@ export default function SalesHistory() {
   const [loading, setLoading] = useState(true);
   const [nota, setNota] = useState(null);
   const [form, setForm] = useState({ customerName: "", phone: "", unit: "", imei: "" });
+  const [q, setQ] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [sortBy, setSortBy] = useState("date");
+  const [sortDir, setSortDir] = useState(-1);
+  const [page, setPage] = useState(1);
 
-  const load = () => { setLoading(true); api.get("/sales").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
-  useEffect(() => { load(); }, []);
+  const load = () => {
+    setLoading(true);
+    api.get("/sales", { params: { q: q || undefined, start: start || undefined, end: end || undefined, sort_by: sortBy, sort_dir: sortDir, page, limit: 50 } })
+      .then(({ data }) => setRows(data.items || data))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [q, start, end, sortBy, sortDir, page]);
 
   const omset = rows.reduce((s, r) => s + (r.total || 0), 0);
   const profit = rows.reduce((s, r) => s + (r.profit || 0), 0);
@@ -39,6 +51,28 @@ export default function SalesHistory() {
       <PageHeader title="Riwayat Penjualan" subtitle="Semua transaksi penjualan & nota WhatsApp" />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 max-w-2xl">
+        <div className="col-span-3 max-w-2xl">
+          <div className="mb-3 flex gap-2">
+            <Input placeholder="Cari (invoice, pelanggan, produk)" value={q} onChange={(e) => setQ(e.target.value)} className="flex-1" />
+            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v)}>
+              <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Tanggal</SelectItem>
+                <SelectItem value="customer_name">Pelanggan</SelectItem>
+                <SelectItem value="total">Total</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={String(sortDir)} onValueChange={(v) => setSortDir(Number(v))}>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="-1">Desc</SelectItem>
+                <SelectItem value="1">Asc</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
           <div className="flex items-center gap-2 text-xs uppercase text-slate-500 font-medium"><ShoppingCart className="w-4 h-4 text-sky-500" /> Total Transaksi</div>
           <div className="text-2xl font-semibold font-mono-num mt-1">{rows.length}</div>
@@ -81,6 +115,13 @@ export default function SalesHistory() {
               ))}
           </tbody>
         </table>
+        <div className="p-3 flex items-center justify-between">
+          <div className="text-sm text-slate-500">Halaman {page}</div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+            <Button size="sm" onClick={() => setPage((p) => p + 1)}>Next</Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={!!nota} onOpenChange={(o) => !o && setNota(null)}>

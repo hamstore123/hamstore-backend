@@ -27,6 +27,7 @@ import CashDrawer from "@/pages/CashDrawer";
 import SalesHistory from "@/pages/SalesHistory";
 import StockAnalysis from "@/pages/StockAnalysis";
 import ActivityLog from "@/pages/ActivityLog";
+import IMEICheck from "@/pages/IMEICheck";
 
 const Protected = ({ children }) => {
   const { user } = useAuth();
@@ -65,6 +66,7 @@ const ROUTES = [
   ["/kinerja", Performance, true],
   ["/log-aktivitas", ActivityLog, true],
   ["/laporan", Reports, true],
+  ["/imei", IMEICheck],
 ];
 
 function App() {

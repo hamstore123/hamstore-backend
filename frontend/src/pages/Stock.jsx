@@ -24,24 +24,45 @@ export default function Stock() {
   const [products, setProducts] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [phys, setPhys] = useState({});
+  const [savingOpname, setSavingOpname] = useState(false);
 
   const load = () => {
     setLoading(true);
-    api.get("/stock/movements").then(({ data }) => setMoves(data)).finally(() => setLoading(false));
+    api.get("/stock/movements", { params: { q: q || undefined, start: start || undefined, end: end || undefined, page, limit: 200 } })
+      .then(({ data }) => setMoves(data.items || data)).finally(() => setLoading(false));
     api.get("/stock/summary").then(({ data }) => setSummary(data)).catch(() => {});
   };
-  useEffect(() => { load(); api.get("/products").then(({ data }) => setProducts(data)); }, []);
+  useEffect(() => { load(); api.get("/products").then(({ data }) => setProducts(data.items || data)).catch(() => setProducts([])); }, [q, start, end, page]);
 
   const saveOpname = async () => {
     const items = products.filter((p) => phys[p.id] !== undefined && phys[p.id] !== "").map((p) => ({
       product_id: p.id, product_name: p.name, system_stock: p.stock, physical_stock: Number(phys[p.id]),
     }));
     if (items.length === 0) return toast.error("Isi minimal 1 stok fisik");
-    await api.post("/stock/opname", { note: "Opname", items });
-    toast.success("Opname tersimpan"); setOpen(false); setPhys({}); load();
-    api.get("/products").then(({ data }) => setProducts(data));
+    setSavingOpname(true);
+    try {
+      const prevScroll = typeof window !== "undefined" ? window.scrollY : 0;
+      const { data } = await api.post("/stock/opname", { note: "Opname", items });
+      // prepend opname to moves
+      setMoves((m) => [data, ...(m || [])]);
+      // update products stock locally
+      setProducts((ps) => ps.map((p) => {
+        const it = (data.items || []).find((x) => x.product_id === p.id);
+        return it ? { ...p, stock: it.physical_stock } : p;
+      }));
+      // refresh summary
+      api.get("/stock/summary").then(({ data }) => setSummary(data)).catch(() => {});
+      toast.success("Opname tersimpan"); setOpen(false); setPhys({});
+      if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: prevScroll }), 50);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Gagal menyimpan opname");
+    } finally { setSavingOpname(false); }
   };
 
   const KIND = { sale: "Penjualan", purchase: "Pembelian", opname: "Opname", trade_in: "Tukar Tambah" };
@@ -64,6 +85,11 @@ export default function Stock() {
       </div>
 
       <h3 className="font-medium text-slate-800 mb-3">Mutasi Stok Terakhir</h3>
+      <div className="mb-3 flex gap-2">
+        <Input placeholder="Cari produk / referensi" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+        <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+      </div>
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200"><tr>
@@ -83,6 +109,13 @@ export default function Stock() {
               ))}
           </tbody>
         </table>
+        <div className="p-3 flex items-center justify-between">
+          <div className="text-sm text-slate-500">Halaman {page}</div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+            <Button size="sm" onClick={() => setPage((p) => p + 1)}>Next</Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>

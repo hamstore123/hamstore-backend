@@ -1,0 +1,78 @@
+nohup: ignoring input
+yarn run v1.22.22
+$ craco build
+Creating an optimized production build...
+Compiled with warnings.
+
+Failed to parse source map from '/app/frontend/node_modules/src/camera/core-impl.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/camera/core-impl.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/camera/factories.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/camera/factories.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/camera/permissions.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/camera/permissions.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/camera/retriever.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/camera/retriever.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/code-decoder.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/code-decoder.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/core.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/core.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/html5-qrcode-scanner.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/html5-qrcode-scanner.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/html5-qrcode.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/html5-qrcode.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/image-assets.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/image-assets.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/index.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/index.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/native-bar-code-detector.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/native-bar-code-detector.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/state-manager.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/state-manager.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/storage.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/storage.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/strings.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/strings.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/ui.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/ui.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/ui/scanner/base.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/ui/scanner/base.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/ui/scanner/camera-selection-ui.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/ui/scanner/camera-selection-ui.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/ui/scanner/camera-zoom-ui.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/ui/scanner/camera-zoom-ui.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/ui/scanner/file-selection-ui.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/ui/scanner/file-selection-ui.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/ui/scanner/scan-type-selector.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/ui/scanner/scan-type-selector.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/ui/scanner/torch-button.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/ui/scanner/torch-button.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/utils.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/utils.ts'
+
+Failed to parse source map from '/app/frontend/node_modules/src/zxing-html5-qrcode-decoder.ts' file: Error: ENOENT: no such file or directory, open '/app/frontend/node_modules/src/zxing-html5-qrcode-decoder.ts'
+
+[eslint] 
+src/components/BarcodeScanner.jsx
+  Line 71:6:  React Hook useEffect has missing dependencies: 'onClose' and 'onScan'. Either include them or remove the dependency array. If 'onScan' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+File sizes after gzip:
+
+  384.37 kB (+4.86 kB)  build/static/js/main.870ee717.js
+  11.38 kB (+241 B)     build/static/css/main.eb526b3b.css
+
+The project was built assuming it is hosted at /.
+You can control this with the homepage field in your package.json.
+
+The build folder is ready to be deployed.
+You may serve it with a static server:
+
+  yarn global add serve
+  serve -s build
+
+Find out more about deployment here:
+
+  https://cra.link/deployment
+
+Done in 20.53s.

@@ -42,20 +42,35 @@ export default function ContentSchedule() {
 
   const create = async () => {
     if (!form.staff_id || !form.target_time) return toast.error("Staf & waktu target wajib");
-    await api.post("/content-posts", { ...form, status: "konsep", target_time: new Date(form.target_time).toISOString() });
-    toast.success("Jadwal konten dibuat"); setOpen(false);
-    setForm({ staff_id: "", platform: "tiktok", content_type: "post", title: "", target_time: "", link: "" }); load();
+    try {
+      const prevScroll = typeof window !== "undefined" ? window.scrollY : 0;
+      const { data } = await api.post("/content-posts", { ...form, status: "konsep", target_time: new Date(form.target_time).toISOString() });
+      setRows((p) => [data, ...(p || [])]);
+      toast.success("Jadwal konten dibuat"); setOpen(false);
+      setForm({ staff_id: "", platform: "tiktok", content_type: "post", title: "", target_time: "", link: "" });
+      if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: prevScroll }), 50);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Gagal membuat jadwal"); }
   };
   const changeStatus = async (r, status) => {
-    await api.put(`/content-posts/${r.id}/status`, { status });
-    toast.success(`Status → ${LABEL[status]}`); load();
+    try {
+      const prevScroll = typeof window !== "undefined" ? window.scrollY : 0;
+      await api.put(`/content-posts/${r.id}/status`, { status });
+      setRows((p) => p.map((it) => (it.id === r.id ? { ...it, status } : it)));
+      toast.success(`Status → ${LABEL[status]}`);
+      if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: prevScroll }), 50);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Gagal mengubah status"); }
   };
   const openMetric = (r) => { setMetricFor(r); setMetric({ views: r.views || 0, likes: r.likes || 0, comments: r.comments || 0, link: r.link || "" }); };
   const saveMetric = async () => {
-    await api.put(`/content-posts/${metricFor.id}/metrics`, {
-      views: Number(metric.views || 0), likes: Number(metric.likes || 0), comments: Number(metric.comments || 0), link: metric.link,
-    });
-    toast.success("Metrik konten disimpan"); setMetricFor(null); load();
+    try {
+      const prevScroll = typeof window !== "undefined" ? window.scrollY : 0;
+      await api.put(`/content-posts/${metricFor.id}/metrics`, {
+        views: Number(metric.views || 0), likes: Number(metric.likes || 0), comments: Number(metric.comments || 0), link: metric.link,
+      });
+      setRows((p) => p.map((it) => (it.id === metricFor.id ? { ...it, views: Number(metric.views || 0), likes: Number(metric.likes || 0), comments: Number(metric.comments || 0), link: metric.link } : it)));
+      toast.success("Metrik konten disimpan"); setMetricFor(null);
+      if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: prevScroll }), 50);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Gagal menyimpan metrik"); }
   };
   const del = async (id) => { if (!window.confirm("Hapus?")) return; await api.delete(`/content-posts/${id}`); load(); };
 

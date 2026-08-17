@@ -69,6 +69,60 @@ api = APIRouter(prefix="/api")
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALG = "HS256"
 
+# For staff role enforcement: staff users (role 'staf' or 'staff') are only allowed
+# to access a restricted set of API prefixes. All other API paths will return 403.
+STAFF_ALLOWED_PREFIXES = [
+    "/api/sales",
+    "/api/shifts",
+    "/api/ppob",
+    "/api/products",
+    "/api/stock",
+    "/api/stock/opname",
+    "/api/stock/movements",
+    "/api/stock/analysis",
+    "/api/hp-prices",
+    "/api/service-prices",
+    "/api/services",
+    "/api/customers",
+    "/api/expenses",
+    "/api/attendance",
+    "/api/tasks",
+    "/api/content-posts",
+    "/api/shifts",
+    "/api/ppob",
+    "/api/dashboard",
+]
+
+
+@app.middleware("http")
+async def enforce_staff_routes(request: Request, call_next):
+    path = request.url.path
+    # only enforce for API routes
+    if not path.startswith("/api"):
+        return await call_next(request)
+    # try to get token from cookie or Authorization header
+    token = request.cookies.get("access_token")
+    if not token:
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[7:]
+    if not token:
+        return await call_next(request)
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+    except Exception:
+        return await call_next(request)
+    role = (payload.get("role") or "").lower()
+    if role in ("staf", "staff"):
+        allowed = False
+        for p in STAFF_ALLOWED_PREFIXES:
+            if path == p or path.startswith(p + "/"):
+                allowed = True
+                break
+        if not allowed:
+            return Response(status_code=403, content='{"detail":"Access denied for role staf"}', media_type="application/json")
+    return await call_next(request)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -157,6 +211,14 @@ class ProductIn(BaseModel):
     sell_price: float = 0
     description: Optional[str] = ""
     image_url: Optional[str] = ""
+    # Additional optional fields
+    battery_health: Optional[str] = ""  # percent or text
+    condition: Optional[str] = ""  # Baru / Bekas / Like New
+    internet_type: Optional[str] = ""  # WiFi Only / All Operator
+    device_status: Optional[str] = ""  # Bea Cukai / iBox / lainnya
+    supplier_id: Optional[str] = None
+    supplier_name: Optional[str] = ""
+    color: Optional[str] = ""
 
 
 class CustomerIn(BaseModel):
@@ -331,6 +393,54 @@ class ContentPostIn(BaseModel):
     note: Optional[str] = ""
 
 
+class AssetIn(BaseModel):
+    name: str
+    category: Optional[str] = "Umum"
+    quantity: int = 1
+    condition: Optional[str] = "Baik"  # Baik, Rusak, Butuh Servis
+    acquired_date: Optional[str] = None
+    value: float = 0
+    location: Optional[str] = ""
+    note: Optional[str] = ""
+
+
+class IMEIIn(BaseModel):
+    imei: str
+    result: Optional[str] = ""  # optional manual result / note
+    note: Optional[str] = ""
+
+
+@api.get("/imei-history")
+async def list_imei(request: Request, q: Optional[str] = None, page: int = 1, limit: int = 100, user: dict = Depends(get_current_user)):
+    query = {}
+    if q:
+        query["$or"] = [{"imei": {"$regex": q, "$options": "i"}}, {"result": {"$regex": q, "$options": "i"}}, {"note": {"$regex": q, "$options": "i"}}]
+    skip = max(0, (page - 1) * limit)
+    rows = await db.imei_history.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
+    # maintain backward compatibility: return raw list unless pagination/sort/date params provided
+    if not any(k in request.query_params for k in ("page", "limit", "sort_by", "sort_dir", "start", "end")):
+        return rows
+    return {"page": page, "limit": limit, "items": rows}
+
+
+@api.post("/imei-history")
+async def create_imei(body: IMEIIn, user: dict = Depends(get_current_user)):
+    doc = body.model_dump()
+    doc["id"] = new_id()
+    doc["user_id"] = user.get("id")
+    doc["user_name"] = user.get("name")
+    doc["created_at"] = now_iso()
+    await db.imei_history.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api.delete("/imei-history/{iid}")
+async def delete_imei(iid: str, user: dict = Depends(get_current_user)):
+    await db.imei_history.delete_one({"id": iid})
+    return {"ok": True}
+
+
 # ---------------- Auth Routes ----------------
 @api.post("/auth/register")
 async def register(body: RegisterIn, response: Response):
@@ -418,12 +528,38 @@ async def delete_staff(sid: str, user: dict = Depends(require_roles("owner"))):
 
 # ---------------- Products ----------------
 @api.get("/products")
-async def list_products(q: Optional[str] = None, user: dict = Depends(get_current_user)):
+async def list_products(
+    request: Request,
+    q: Optional[str] = None,
+    category: Optional[str] = None,
+    min_stock: Optional[int] = None,
+    sort_by: Optional[str] = "created_at",
+    sort_dir: Optional[int] = -1,
+    page: int = 1,
+    limit: int = 100,
+    user: dict = Depends(get_current_user),
+):
     query: dict = {}
     if q:
-        query = {"$or": [{"name": {"$regex": q, "$options": "i"}}, {"sku": {"$regex": q, "$options": "i"}}, {"imei": {"$regex": q, "$options": "i"}}]}
-    docs = await db.products.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
-    return docs
+        query["$or"] = [
+            {"name": {"$regex": q, "$options": "i"}},
+            {"sku": {"$regex": q, "$options": "i"}},
+            {"imei": {"$regex": q, "$options": "i"}},
+            {"brand": {"$regex": q, "$options": "i"}},
+        ]
+    if category:
+        query["category"] = category
+    if min_stock is not None:
+        query["stock"] = {"$lte": min_stock}
+    allowed_sort = {"name", "sell_price", "cost_price", "stock", "created_at"}
+    sb = sort_by if sort_by in allowed_sort else "created_at"
+    sd = -1 if sort_dir == -1 else 1
+    skip = max(0, (page - 1) * limit)
+    cursor = db.products.find(query, {"_id": 0}).sort(sb, sd).skip(skip).limit(limit)
+    docs = await cursor.to_list(length=limit)
+    if not any(k in request.query_params for k in ("page", "limit", "sort_by", "sort_dir", "start", "end")):
+        return docs
+    return {"page": page, "limit": limit, "items": docs}
 
 
 @api.post("/products")
@@ -559,20 +695,43 @@ async def create_sale(body: SaleIn, user: dict = Depends(get_current_user)):
 
 
 @api.get("/sales")
-async def list_sales(start: Optional[str] = None, end: Optional[str] = None, user: dict = Depends(get_current_user)):
-    q: dict = {}
+async def list_sales(
+    q: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    sort_by: Optional[str] = "date",
+    sort_dir: Optional[int] = -1,
+    page: int = 1,
+    limit: int = 100,
+    user: dict = Depends(get_current_user),
+):
+    query: dict = {}
     if start or end:
-        q["date"] = {}
-        if start: q["date"]["$gte"] = start
-        if end: q["date"]["$lte"] = end
-    rows = await db.sales.find(q, {"_id": 0}).sort("date", -1).to_list(2000)
+        query["date"] = {}
+        if start: query["date"]["$gte"] = start
+        if end: query["date"]["$lte"] = end
+    if q:
+        query["$or"] = [
+            {"invoice": {"$regex": q, "$options": "i"}},
+            {"customer_name": {"$regex": q, "$options": "i"}},
+            {"items.product_name": {"$regex": q, "$options": "i"}},
+        ]
+    allowed_sort = {"date", "customer_name", "total", "invoice"}
+    sb = sort_by if sort_by in allowed_sort else "date"
+    sd = -1 if sort_dir == -1 else 1
+    skip = max(0, (page - 1) * limit)
+    rows = await db.sales.find(query, {"_id": 0}).sort(sb, sd).skip(skip).limit(limit).to_list(length=limit)
     if user.get("role") != "owner":
         for r in rows:
             r.pop("profit", None)
             r.pop("total_cost", None)
             for it in r.get("items", []):
                 it.pop("cost_price", None)
-    return rows
+
+    # Simple heuristic: if common pagination/filter params are not present, return legacy list for compatibility
+    if page == 1 and limit == 100 and not start and not end and not q:
+        return rows
+    return {"page": page, "limit": limit, "items": rows}
 
 
 @api.get("/sales/{sid}")
@@ -624,8 +783,35 @@ async def list_purchases(start: Optional[str] = None, end: Optional[str] = None,
 
 # ---------------- Stock ----------------
 @api.get("/stock/movements")
-async def stock_movements(user: dict = Depends(get_current_user)):
-    return await db.stock_movements.find({}, {"_id": 0}).sort("date", -1).to_list(500)
+async def stock_movements(
+    request: Request,
+    q: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    sort_by: Optional[str] = "date",
+    sort_dir: Optional[int] = -1,
+    page: int = 1,
+    limit: int = 200,
+    user: dict = Depends(get_current_user),
+):
+    qf: dict = {}
+    if start or end:
+        qf["date"] = {}
+        if start: qf["date"]["$gte"] = start
+        if end: qf["date"]["$lte"] = end
+    if q:
+        qf["$or"] = [
+            {"product_name": {"$regex": q, "$options": "i"}},
+            {"reference": {"$regex": q, "$options": "i"}},
+        ]
+    allowed_sort = {"date", "product_name", "delta"}
+    sb = sort_by if sort_by in allowed_sort else "date"
+    sd = -1 if sort_dir == -1 else 1
+    skip = max(0, (page - 1) * limit)
+    rows = await db.stock_movements.find(qf, {"_id": 0}).sort(sb, sd).skip(skip).limit(limit).to_list(length=limit)
+    if not any(k in request.query_params for k in ("page", "limit", "sort_by", "sort_dir", "start", "end")):
+        return rows
+    return {"page": page, "limit": limit, "items": rows}
 
 
 @api.post("/stock/opname")
@@ -800,8 +986,36 @@ async def attendance_summary(start: Optional[str] = None, end: Optional[str] = N
 
 # ---------------- PPOB ----------------
 @api.get("/ppob")
-async def list_ppob(user: dict = Depends(get_current_user)):
-    return await db.ppob.find({}, {"_id": 0}).sort("date", -1).to_list(1000)
+async def list_ppob(
+    request: Request,
+    q: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    sort_by: Optional[str] = "date",
+    sort_dir: Optional[int] = -1,
+    page: int = 1,
+    limit: int = 100,
+    user: dict = Depends(get_current_user),
+):
+    query: dict = {}
+    if start or end:
+        query["date"] = {}
+        if start: query["date"]["$gte"] = start
+        if end: query["date"]["$lte"] = end
+    if q:
+        query["$or"] = [
+            {"customer_name": {"$regex": q, "$options": "i"}},
+            {"customer_number": {"$regex": q, "$options": "i"}},
+            {"invoice": {"$regex": q, "$options": "i"}},
+        ]
+    allowed_sort = {"date", "customer_name", "price", "invoice"}
+    sb = sort_by if sort_by in allowed_sort else "date"
+    sd = -1 if sort_dir == -1 else 1
+    skip = max(0, (page - 1) * limit)
+    rows = await db.ppob.find(query, {"_id": 0}).sort(sb, sd).skip(skip).limit(limit).to_list(length=limit)
+    if not any(k in request.query_params for k in ("page", "limit", "sort_by", "sort_dir", "start", "end")):
+        return rows
+    return {"page": page, "limit": limit, "items": rows}
 
 
 @api.post("/ppob")
@@ -1301,6 +1515,61 @@ async def seed_from_files(user: dict = Depends(require_roles("owner"))):
     return results
 
 
+# ---------------- Assets ----------------
+@api.get("/assets")
+async def list_assets(
+    request: Request,
+    q: Optional[str] = None,
+    category: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    sort_by: Optional[str] = "acquired_date",
+    sort_dir: Optional[int] = -1,
+    page: int = 1,
+    limit: int = 100,
+    user: dict = Depends(get_current_user),
+):
+    query: dict = {}
+    if q:
+        query["$or"] = [{"name": {"$regex": q, "$options": "i"}}, {"location": {"$regex": q, "$options": "i"}}, {"note": {"$regex": q, "$options": "i"}}]
+    if category:
+        query["category"] = category
+    if start or end:
+        query["acquired_date"] = {}
+        if start: query["acquired_date"]["$gte"] = start
+        if end: query["acquired_date"]["$lte"] = end
+    allowed_sort = {"acquired_date", "name", "value", "quantity"}
+    sb = sort_by if sort_by in allowed_sort else "acquired_date"
+    sd = -1 if sort_dir == -1 else 1
+    skip = max(0, (page - 1) * limit)
+    rows = await db.assets.find(query, {"_id": 0}).sort(sb, sd).skip(skip).limit(limit).to_list(length=limit)
+    if not any(k in request.query_params for k in ("page", "limit", "sort_by", "sort_dir", "start", "end")):
+        return rows
+    return {"page": page, "limit": limit, "items": rows}
+
+
+@api.post("/assets")
+async def create_asset(body: AssetIn, user: dict = Depends(get_current_user)):
+    doc = body.model_dump()
+    doc["id"] = new_id()
+    doc["created_at"] = now_iso()
+    await db.assets.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api.put("/assets/{aid}")
+async def update_asset(aid: str, body: AssetIn, user: dict = Depends(get_current_user)):
+    await db.assets.update_one({"id": aid}, {"$set": body.model_dump()})
+    return {"ok": True}
+
+
+@api.delete("/assets/{aid}")
+async def delete_asset(aid: str, user: dict = Depends(get_current_user)):
+    await db.assets.delete_one({"id": aid})
+    return {"ok": True}
+
+
 @api.post("/upload")
 async def upload_file(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     ext = file.filename.rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "bin"
@@ -1500,6 +1769,18 @@ async def startup():
         logger.info(f"Admin seeded: {admin_email}")
     elif not verify_password(admin_password, existing["password_hash"]):
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
+
+    # Ensure a default staff account exists for QA/tests
+    staff_email = os.environ.get("STAFF_EMAIL", "staf@tokohp.com")
+    staff_password = os.environ.get("STAFF_PASSWORD", "staf123")
+    existing_staff = await db.users.find_one({"email": staff_email})
+    if not existing_staff:
+        await db.users.insert_one({
+            "id": new_id(), "name": "Staff Toko", "email": staff_email,
+            "password_hash": hash_password(staff_password), "role": "staf",
+            "active": True, "created_at": now_iso(),
+        })
+        logger.info(f"Staff seeded: {staff_email}")
 
     # Auto-seed HAM STORE data if empty
     import json as _json

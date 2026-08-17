@@ -11,7 +11,7 @@ import logo from "@/assets/ham-logo.png";
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@tokohp.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -49,13 +49,13 @@ export default function Login() {
           <div className="space-y-4">
             <div>
               <Label className="text-slate-600">Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" data-testid="login-email" required />
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 transition" placeholder="you@company.com" data-testid="login-email" required />
             </div>
             <div>
               <Label className="text-slate-600">Password</Label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1" data-testid="login-password" required />
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 transition" data-testid="login-password" required />
             </div>
-            <Button type="submit" disabled={loading} className="w-full bg-sky-600 hover:bg-sky-700" data-testid="login-submit">
+            <Button type="submit" disabled={loading} className="w-full bg-sky-600 hover:bg-sky-700 transition-colors duration-150" data-testid="login-submit">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Masuk"}
             </Button>
           </div>

@@ -22,6 +22,11 @@ export default function CrudResource({
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [dynamicOptions, setDynamicOptions] = useState({});
+  const [supplierOpen, setSupplierOpen] = useState(false);
+  const [supplierField, setSupplierField] = useState(null);
+  const [supplierForm, setSupplierForm] = useState({ name: "", phone: "", address: "" });
+  const [supplierSaving, setSupplierSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
@@ -59,6 +64,31 @@ export default function CrudResource({
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const map = {};
+    (fields || []).forEach((f) => {
+      if (f.options) map[f.name] = f.options;
+      else if (f.type === "supplier") map[f.name] = [];
+    });
+    setDynamicOptions(map);
+  }, [fields]);
+
+  const createSupplier = async () => {
+    if (!supplierField) return;
+    if (!supplierForm.name) return toast.error("Nama supplier wajib");
+    setSupplierSaving(true);
+    try {
+      const { data } = await api.post("/suppliers", supplierForm);
+      const entry = { value: data.id, label: data.name };
+      setDynamicOptions((prev) => ({ ...prev, [supplierField]: [...(prev[supplierField] || []), entry] }));
+      setForm((prev) => ({ ...prev, [supplierField]: data.id, supplier_name: data.name }));
+      setSupplierOpen(false);
+      toast.success("Supplier ditambahkan");
+    } catch (e) {
+      toast.error("Gagal menambahkan supplier");
+    } finally { setSupplierSaving(false); }
+  };
+
   const openCreate = () => {
     const init = {};
     fields.forEach((f) => (init[f.name] = f.type === "number" ? 0 : f.default ?? ""));
@@ -79,10 +109,25 @@ export default function CrudResource({
       let payload = { ...form };
       fields.forEach((f) => { if (f.type === "number") payload[f.name] = Number(payload[f.name] || 0); });
       if (transform) payload = transform(payload, editing);
-      if (editing) await api.put(`${endpoint}/${editing.id}`, payload);
-      else await api.post(endpoint, payload);
+
+      // preserve scroll position
+      const prevScroll = typeof window !== "undefined" ? window.scrollY : 0;
+
+      if (editing) {
+        // optimistic update for edit
+        await api.put(`${endpoint}/${editing.id}`, payload);
+        setRows((prev) => prev.map((r) => (r.id === editing.id ? { ...r, ...payload } : r)));
+      } else {
+        // create: use server return if available
+        const { data } = await api.post(endpoint, payload);
+        const newItem = data || payload;
+        setRows((prev) => [newItem, ...prev]);
+      }
+
       toast.success(editing ? "Berhasil diperbarui" : "Berhasil ditambahkan");
-      setOpen(false); load();
+      setOpen(false);
+      // restore scroll
+      if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: prevScroll }), 50);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Gagal menyimpan");
     } finally { setSaving(false); }
@@ -90,7 +135,12 @@ export default function CrudResource({
 
   const del = async (row) => {
     if (!window.confirm("Hapus data ini?")) return;
-    try { await api.delete(`${endpoint}/${row.id}`); toast.success("Dihapus"); load(); }
+    try {
+      await api.delete(`${endpoint}/${row.id}`);
+      // remove from current list without full reload
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      toast.success("Dihapus");
+    }
     catch { toast.error("Gagal menghapus"); }
   };
 
@@ -183,11 +233,25 @@ export default function CrudResource({
                   <Select value={String(form[f.name] ?? "")} onValueChange={(v) => setForm({ ...form, [f.name]: v })}>
                     <SelectTrigger className="mt-1" data-testid={`field-${f.name}`}><SelectValue placeholder="Pilih" /></SelectTrigger>
                     <SelectContent>
-                      {f.options.map((o) => (
+                      {(dynamicOptions[f.name] || f.options || []).map((o) => (
                         <SelectItem key={o.value ?? o} value={String(o.value ?? o)}>{o.label ?? o}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                ) : f.type === "supplier" ? (
+                  <div className="mt-1 flex gap-2 items-center">
+                    <Select value={String(form[f.name] ?? "")} onValueChange={(v) => setForm({ ...form, [f.name]: v })}>
+                      <SelectTrigger className="mt-1" data-testid={`field-${f.name}`}><SelectValue placeholder="Pilih supplier" /></SelectTrigger>
+                      <SelectContent>
+                        {(dynamicOptions[f.name] || []).map((o) => (
+                          <SelectItem key={o.value ?? o} value={String(o.value ?? o)}>{o.label ?? o}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" onClick={() => { setSupplierField(f.name); setSupplierForm({ name: "", phone: "", address: "" }); setSupplierOpen(true); }}>
+                      Tambah
+                    </Button>
+                  </div>
                 ) : f.type === "image" ? (
                   <div className="mt-1 flex items-center gap-3">
                     {form[f.name]
@@ -205,7 +269,7 @@ export default function CrudResource({
                   </div>
                 ) : (
                   <Input
-                    type={f.type === "number" ? "number" : "text"}
+                    type={f.type === "number" ? "number" : f.type === "color" ? "color" : "text"}
                     value={form[f.name] ?? ""}
                     onChange={(e) => setForm({ ...form, [f.name]: e.target.value })}
                     className="mt-1" data-testid={`field-${f.name}`}
@@ -219,6 +283,24 @@ export default function CrudResource({
             <Button onClick={save} disabled={saving} className="bg-sky-600 hover:bg-sky-700" data-testid="crud-save-btn">
               {saving ? "Menyimpan..." : "Simpan"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={supplierOpen} onOpenChange={setSupplierOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Tambah Supplier</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-1 gap-2 py-2">
+            <Label className="text-xs text-slate-500">Nama</Label>
+            <Input value={supplierForm.name} onChange={(e) => setSupplierForm((s) => ({ ...s, name: e.target.value }))} />
+            <Label className="text-xs text-slate-500">Telepon</Label>
+            <Input value={supplierForm.phone} onChange={(e) => setSupplierForm((s) => ({ ...s, phone: e.target.value }))} />
+            <Label className="text-xs text-slate-500">Alamat</Label>
+            <Input value={supplierForm.address} onChange={(e) => setSupplierForm((s) => ({ ...s, address: e.target.value }))} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSupplierOpen(false)}>Batal</Button>
+            <Button onClick={createSupplier} disabled={supplierSaving} className="bg-sky-600 hover:bg-sky-700">{supplierSaving ? "Menyimpan..." : "Simpan Supplier"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

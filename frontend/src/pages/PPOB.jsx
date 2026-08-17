@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
+import { Select as SimpleSelect } from "@/components/ui/select";
 
 const KINDS = [["pulsa", "Pulsa"], ["token_pln", "Token PLN"], ["paket_data", "Paket Data"], ["bpjs", "BPJS"], ["pdam", "PDAM"]];
 
@@ -16,18 +17,27 @@ export default function PPOB() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ kind: "pulsa", customer_number: "", customer_name: "", nominal: 0, price: 0, cost: 0, payment_method: "cash" });
+  const [q, setQ] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [page, setPage] = useState(1);
 
-  const load = () => { setLoading(true); api.get("/ppob").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
-  useEffect(() => { load(); }, []);
+  const load = () => { setLoading(true); api.get("/ppob", { params: { q: q || undefined, start: start || undefined, end: end || undefined, page, limit: 50 } }).then(({ data }) => setRows(data.items || data)).finally(() => setLoading(false)); };
+  useEffect(() => { load(); }, [q, start, end, page]);
 
   const totalOmset = rows.reduce((s, r) => s + Number(r.price || 0), 0);
   const totalLaba = rows.reduce((s, r) => s + Number(r.profit || 0), 0);
 
   const create = async () => {
     if (!form.customer_number || !form.price) return toast.error("Nomor & harga wajib");
-    await api.post("/ppob", { ...form, nominal: Number(form.nominal), price: Number(form.price), cost: Number(form.cost) });
-    toast.success("Transaksi PPOB tersimpan"); setOpen(false);
-    setForm({ kind: "pulsa", customer_number: "", customer_name: "", nominal: 0, price: 0, cost: 0, payment_method: "cash" }); load();
+    try {
+      const prevScroll = typeof window !== "undefined" ? window.scrollY : 0;
+      const { data } = await api.post("/ppob", { ...form, nominal: Number(form.nominal), price: Number(form.price), cost: Number(form.cost) });
+      setRows((p) => [data, ...(p || [])]);
+      toast.success("Transaksi PPOB tersimpan"); setOpen(false);
+      setForm({ kind: "pulsa", customer_number: "", customer_name: "", nominal: 0, price: 0, cost: 0, payment_method: "cash" });
+      if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: prevScroll }), 50);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Gagal menyimpan PPOB"); }
   };
 
   return (
@@ -46,6 +56,13 @@ export default function PPOB() {
         </div>
       </div>
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+        <div className="p-3">
+          <div className="flex gap-2 max-w-lg">
+            <Input placeholder="Cari (nama, invoice, nomor)" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </div>
+        </div>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200"><tr>
             {["Invoice", "Jenis", "No. Pelanggan", "Nominal", "Harga", "Modal", "Laba", "Tanggal"].map((h) => <th key={h} className="px-4 py-3 text-left font-medium text-slate-500">{h}</th>)}
@@ -67,6 +84,13 @@ export default function PPOB() {
               ))}
           </tbody>
         </table>
+        <div className="p-3 flex items-center justify-between">
+          <div className="text-sm text-slate-500">Halaman {page}</div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+            <Button size="sm" onClick={() => setPage((p) => p + 1)}>Next</Button>
+          </div>
+        </div>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

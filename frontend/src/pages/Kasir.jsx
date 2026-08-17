@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api, { fmtIDR, fileUrl } from "@/lib/api";
 import { PageHeader } from "@/components/common";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,9 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 export default function Kasir() {
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [custQ, setCustQ] = useState("");
+  const [custOpen, setCustOpen] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: "", phone: "" });
   const [q, setQ] = useState("");
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState("umum");
@@ -26,7 +30,8 @@ export default function Kasir() {
   const [scanOpen, setScanOpen] = useState(false);
 
   const loadProducts = (query = "") => api.get("/products", { params: query ? { q: query } : {} }).then(({ data }) => setProducts(data));
-  useEffect(() => { loadProducts(); api.get("/customers").then(({ data }) => setCustomers(data)); }, []);
+  const loadCustomers = () => api.get("/customers").then(({ data }) => setCustomers(data));
+  useEffect(() => { loadProducts(); loadCustomers(); }, []);
   useEffect(() => { const t = setTimeout(() => loadProducts(q), 300); return () => clearTimeout(t); }, [q]);
 
   const add = (p) => {
@@ -64,6 +69,19 @@ export default function Kasir() {
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Gagal menyimpan transaksi");
     } finally { setSaving(false); }
+  };
+
+  const createCustomer = async () => {
+    if (!newCustomer.name) return toast.error("Nama pelanggan wajib");
+    try {
+      const { data } = await api.post("/customers", newCustomer);
+      toast.success("Pelanggan tersimpan");
+      setCustOpen(false);
+      await loadCustomers();
+      setCustomer(data.id);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Gagal menambahkan pelanggan");
+    }
   };
 
   const scanFind = async (code) => {
@@ -135,13 +153,21 @@ export default function Kasir() {
           <div className="space-y-2 text-sm">
             <div>
               <Label className="text-xs text-slate-500">Pelanggan</Label>
-              <Select value={customer} onValueChange={setCustomer}>
-                <SelectTrigger className="mt-1" data-testid="kasir-customer"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="umum">Umum</SelectItem>
-                  {customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Input placeholder="Cari pelanggan..." className="mb-2" value={custQ} onChange={(e) => setCustQ(e.target.value)} />
+                  <Select value={customer} onValueChange={setCustomer}>
+                    <SelectTrigger className="mt-1" data-testid="kasir-customer"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="umum">Umum</SelectItem>
+                      {customers.filter((c) => !custQ || c.name.toLowerCase().includes(custQ.toLowerCase()) || (c.phone || "").includes(custQ)).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-28">
+                  <Button onClick={() => { setNewCustomer({ name: "", phone: "" }); setCustOpen(true); }} className="w-full" variant="outline"><Plus className="w-4 h-4 mr-1" />Tambah</Button>
+                </div>
+              </div>
             </div>
 
             <button onClick={() => setTradeIn((v) => !v)} className={`w-full flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium border ${tradeIn ? "bg-sky-50 border-sky-300 text-sky-700" : "border-slate-200 text-slate-500"}`} data-testid="kasir-tradein-toggle">
@@ -185,6 +211,21 @@ export default function Kasir() {
           </div>
         </div>
       </div>
+      <Dialog open={custOpen} onOpenChange={setCustOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Tambah Pelanggan</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-1 gap-2 py-2">
+            <Label className="text-xs text-slate-500">Nama</Label>
+            <Input value={newCustomer.name} onChange={(e) => setNewCustomer((s) => ({ ...s, name: e.target.value }))} />
+            <Label className="text-xs text-slate-500">No. HP</Label>
+            <Input value={newCustomer.phone} onChange={(e) => setNewCustomer((s) => ({ ...s, phone: e.target.value }))} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustOpen(false)}>Batal</Button>
+            <Button onClick={createCustomer} className="bg-sky-600 hover:bg-sky-700">Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <BarcodeScanner open={scanOpen} onClose={() => setScanOpen(false)} onScan={scanFind} />
     </div>
   );
