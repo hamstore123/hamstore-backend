@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500;600&display=swap');
+@import "./styles/design_tokens.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -48,6 +49,21 @@ input, button, select, textarea {
     transition: box-shadow 120ms ease, transform 120ms ease, background-color 120ms ease;
 }
 button:hover { transform: translateY(-1px); }
+
+/* Cards */
+.card { border-radius: 12px; background: white; box-shadow: 0 6px 18px rgba(16,24,40,0.06); border: 1px solid rgba(15,23,42,0.04); }
+
+/* Table zebra striping and sticky header */
+table thead { position: sticky; top: 0; z-index: 10; }
+tbody tr:nth-child(odd) { background: white; }
+tbody tr:nth-child(even) { background: rgba(248,250,252,0.6); }
+
+/* Skeleton */
+.skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.06) 100%); background-size: 200% 100%; animation: skeleton 1.2s linear infinite; }
+@keyframes skeleton { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+
+/* Buttons */
+.btn-shadow { box-shadow: 0 6px 14px rgba(2,6,23,0.06); }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }

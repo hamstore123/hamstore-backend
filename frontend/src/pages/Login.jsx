@@ -43,17 +43,20 @@ export default function Login() {
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
-        <form onSubmit={submit} className="w-full max-w-sm" data-testid="login-form">
+        <form onSubmit={submit} className="w-full max-w-sm" data-testid="login-form" autoComplete="off">
+          {/* hidden fields to discourage browser autofill */}
+          <input type="text" name="fakeusernameremembered" style={{ display: "none" }} />
+          <input type="password" name="fakepasswordremembered" style={{ display: "none" }} />
           <h2 className="text-2xl font-semibold text-slate-900 mb-1">Masuk</h2>
           <p className="text-sm text-slate-500 mb-6">Silakan masuk untuk melanjutkan</p>
           <div className="space-y-4">
             <div>
               <Label className="text-slate-600">Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 transition" placeholder="you@company.com" data-testid="login-email" required />
+              <Input name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 transition" placeholder="Email" autoComplete="off" data-testid="login-email" required />
             </div>
             <div>
               <Label className="text-slate-600">Password</Label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 transition" data-testid="login-password" required />
+              <Input name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 transition" autoComplete="new-password" data-testid="login-password" required />
             </div>
             <Button type="submit" disabled={loading} className="w-full bg-sky-600 hover:bg-sky-700 transition-colors duration-150" data-testid="login-submit">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Masuk"}

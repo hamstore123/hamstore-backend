@@ -1,0 +1,42 @@
+/* Design tokens and small utility classes for the redesign */
+:root{
+  /* Spacing */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-6: 1.5rem;
+
+  /* Typography */
+  --type-heading-1: 1.5rem; /* 24px */
+  --type-heading-2: 1.125rem; /* 18px */
+  --type-body: 0.9375rem; /* 15px */
+  --type-mono: 0.875rem;
+
+  /* Colors */
+  --muted: #6b7280;
+  --card-bg: rgba(255,255,255,1);
+  --surface-50: #f8fafc;
+
+  /* Elevation */
+  --card-shadow: 0 6px 18px rgba(16,24,40,0.06);
+
+  /* Controls */
+  --radius-lg: 12px;
+  --save-footer-height: 68px;
+}
+
+/* Page header tokens */
+.page-header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:var(--sp-3);margin-bottom:var(--sp-6)}
+.page-title{font-size:var(--type-heading-1);font-weight:600;color:rgb(15 23 42)}
+.page-subtitle{font-size:var(--type-body);color:var(--muted);margin-top:var(--sp-1)}
+
+/* Card util uses tokens */
+.card { border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: var(--card-shadow); border: 1px solid rgba(15,23,42,0.04); }
+
+/* Sticky save footer that respects safe area and is visible on mobile */
+.save-footer{position:sticky;bottom:0;z-index:60;height:var(--save-footer-height);background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.95));backdrop-filter:blur(6px);padding:calc(var(--sp-2));display:flex;align-items:center;justify-content:flex-end;border-top:1px solid rgba(15,23,42,0.04);padding-left:calc(var(--sp-4));padding-right:calc(var(--sp-4));padding-bottom:calc(env(safe-area-inset-bottom, 0) + var(--sp-2));}
+
+@media(min-width:768px){
+  .page-title{font-size:var(--type-heading-2)}
+}

@@ -21,6 +21,24 @@ export default function Products() {
     return payload;
   };
 
+  const filters = [
+    { name: "category", label: "Kategori", type: "select", options: [{ value: "", label: "Semua" }] },
+    { name: "brand", label: "Brand", type: "text" },
+    { name: "supplier_id", label: "Supplier", type: "select", options: suppliers },
+    { name: "condition", label: "Kondisi", type: "select", options: ["Baru", "Bekas", "Like New"] },
+    { name: "internet_type", label: "Tipe Internet", type: "select", options: ["WiFi Only", "All Operator"] },
+    { name: "device_status", label: "Status Perangkat", type: "select", options: ["Bea Cukai (resmi)", "iBox", "Lainnya"] },
+    { name: "stock_status", label: "Status Stok", type: "select", options: [{ value: "", label: "Semua" }, { value: "available", label: "Tersedia" }, { value: "out", label: "Habis" }] },
+  ];
+
+  const sortOptions = [
+    { value: "name", label: "Nama" },
+    { value: "stock", label: "Stok" },
+    { value: "cost_price", label: "Harga Modal" },
+    { value: "sell_price", label: "Harga Jual" },
+    { value: "created_at", label: "Tanggal Ditambahkan" },
+  ];
+
   return (
     <CrudResource
       title="Produk"
@@ -28,6 +46,8 @@ export default function Products() {
       endpoint="/products"
       scanSearch
       transform={transform}
+      filters={filters}
+      sortOptions={sortOptions}
       columns={[
         { key: "image_url", label: "Foto", render: (r) => (
           r.image_url

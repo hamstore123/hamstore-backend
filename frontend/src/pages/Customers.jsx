@@ -20,17 +20,22 @@ export default function Customers() {
   const [form, setForm] = useState(EMPTY);
   const [scan, setScan] = useState(false);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.get("/customers").then(({ data }) => setRows(data)).finally(() => setLoading(false));
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(50);
 
-  const filtered = rows.filter((r) => {
-    if (!q) return true;
-    const s = q.toLowerCase();
-    return [r.name, r.phone, r.email, r.device_type, r.imei, r.address].some((f) => (f || "").toLowerCase().includes(s));
-  });
+  const load = async () => {
+    setLoading(true);
+    try {
+      const params = { q, page, limit };
+      const { data } = await api.get("/customers", { params });
+      setRows(data.items || data);
+    } catch (e) { toast.error("Gagal memuat pelanggan"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [q, page]);
+
+  const filtered = rows; // server-side filtering
 
   const openCreate = () => { setForm(EMPTY); setEditing(null); setOpen(true); };
   const openEdit = (r) => { setForm({ ...EMPTY, ...r }); setEditing(r); setOpen(true); };
@@ -59,7 +64,7 @@ export default function Customers() {
       <div className="relative mb-4 max-w-md">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama, telepon, IMEI, tipe HP..." className="pl-9" data-testid="customer-search" />
-        {q && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{filtered.length} hasil</span>}
+        {q && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{rows.length} hasil</span>}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
@@ -85,6 +90,14 @@ export default function Customers() {
               ))}
           </tbody>
         </table>
+        <div className="px-4 py-3 border-t bg-slate-50 flex items-center justify-between">
+          <div className="text-sm text-slate-500">{rows.length} item</div>
+          <div className="flex items-center gap-2">
+            <Button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} variant="outline">Prev</Button>
+            <div className="text-sm">Halaman {page}</div>
+            <Button disabled={rows.length < limit} onClick={() => setPage((p) => p + 1)} variant="outline">Next</Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>

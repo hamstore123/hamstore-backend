@@ -16,9 +16,12 @@ export default function Purchases() {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [createProductOpen, setCreateProductOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: "", brand: "", category: "Handphone", cost_price: 0, sell_price: 0 });
   const [supplier, setSupplier] = useState("umum");
   const [paid, setPaid] = useState(0);
   const [items, setItems] = useState([]);
+  const [unitModal, setUnitModal] = useState({ open: false, itemId: null });
   const [scanOpen, setScanOpen] = useState(false);
 
   const load = () => { setLoading(true); api.get("/purchases").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
@@ -27,9 +30,39 @@ export default function Purchases() {
   const addItem = (pid) => {
     const p = products.find((x) => x.id === pid); if (!p) return;
     if (items.find((i) => i.product_id === pid)) return;
-    setItems([...items, { product_id: p.id, product_name: p.name, qty: 1, cost_price: p.cost_price }]);
+    setItems([...items, { product_id: p.id, product_name: p.name, qty: 1, cost_price: p.cost_price, units: [{ imei: "", color: "" }] }]);
+  };
+  const createProductInline = async () => {
+    try {
+      const { data } = await api.post("/products", newProduct);
+      setProducts((p) => [data, ...p]);
+      setCreateProductOpen(false);
+      // add as item
+      setItems((it) => [{ product_id: data.id, product_name: data.name, qty: 1, cost_price: data.cost_price }, ...it]);
+      setNewProduct({ name: "", brand: "", category: "Handphone", cost_price: 0, sell_price: 0 });
+      toast.success("Produk dibuat dan ditambahkan ke pembelian");
+    } catch (e) { toast.error("Gagal membuat produk"); }
   };
   const upd = (id, k, v) => setItems(items.map((i) => i.product_id === id ? { ...i, [k]: Number(v) } : i));
+  const updImeis = (id, text) => {
+    const arr = text.split(",").map((s) => s.trim()).filter(Boolean);
+    setItems(items.map((i) => i.product_id === id ? { ...i, units: arr.map((a) => ({ imei: a, color: i.color || "" })), qty: arr.length || i.qty } : i));
+  };
+
+  const openUnits = (itemId) => setUnitModal({ open: true, itemId });
+  const closeUnits = () => setUnitModal({ open: false, itemId: null });
+  const setUnit = (itemId, idx, key, val) => setItems(items.map((it) => {
+    if (it.product_id !== itemId) return it;
+    const units = (it.units || []).slice();
+    units[idx] = { ...(units[idx] || { imei: "", color: "" }), [key]: val };
+    return { ...it, units, qty: units.length };
+  }));
+  const addUnit = (itemId) => setItems(items.map((it) => it.product_id === itemId ? { ...it, units: [...(it.units || []), { imei: "", color: "" }], qty: (it.units || []).length + 1 } : it));
+  const removeUnit = (itemId, idx) => setItems(items.map((it) => {
+    if (it.product_id !== itemId) return it;
+    const units = (it.units || []).slice(); units.splice(idx, 1);
+    return { ...it, units, qty: units.length };
+  }));
   const total = items.reduce((s, i) => s + i.qty * i.cost_price, 0);
 
   const scanAdd = async (code) => {
@@ -44,9 +77,19 @@ export default function Purchases() {
   const save = async () => {
     if (items.length === 0) return toast.error("Tambah minimal 1 item");
     const sup = suppliers.find((s) => s.id === supplier);
+    const payloadItems = items.map((it) => ({
+      product_id: it.product_id,
+      product_name: it.product_name,
+      qty: (it.units && it.units.length) ? it.units.length : Number(it.qty || 0),
+      cost_price: Number(it.cost_price || 0),
+      units: it.units || [],
+    }));
     await api.post("/purchases", {
-      supplier_id: supplier === "umum" ? null : supplier, supplier_name: sup?.name || "Umum",
-      items, paid: Number(paid || 0), payment_method: "cash",
+      supplier_id: supplier === "umum" ? null : supplier,
+      supplier_name: sup?.name || "Umum",
+      items: payloadItems,
+      paid: Number(paid || 0),
+      payment_method: "cash",
     });
     toast.success("Pembelian tersimpan"); setOpen(false); setItems([]); setPaid(0); load();
     api.get("/products").then(({ data }) => setProducts(data));
@@ -84,13 +127,18 @@ export default function Purchases() {
           <DialogHeader><DialogTitle>Pembelian Baru</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-slate-500">Supplier</Label>
+              <div>
+                <Label className="text-xs text-slate-500">Supplier</Label>
                 <Select value={supplier} onValueChange={setSupplier}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="umum">Umum</SelectItem>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    <SelectItem value="umum">Umum</SelectItem>
+                    {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
-              <div><Label className="text-xs text-slate-500">Tambah Produk</Label>
+              <div>
+                <Label className="text-xs text-slate-500">Tambah Produk</Label>
                 <div className="mt-1 flex gap-2">
                   <div className="flex-1">
                     <Select value="" onValueChange={addItem}>
@@ -98,28 +146,59 @@ export default function Purchases() {
                       <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <Button type="button" variant="outline" className="shrink-0" onClick={() => setScanOpen(true)} data-testid="purchase-scan-btn">
-                    <ScanLine className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" className="shrink-0" onClick={() => setScanOpen(true)} data-testid="purchase-scan-btn">
+                      <ScanLine className="w-4 h-4" />
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setCreateProductOpen(true)}>Buat Produk Baru</Button>
+                  </div>
                 </div>
               </div>
             </div>
+
             <div className="space-y-2 max-h-56 overflow-y-auto">
               {items.map((i) => (
                 <div key={i.product_id} className="flex items-center gap-2 text-sm border-b border-slate-100 pb-2">
                   <div className="flex-1 truncate">{i.product_name}</div>
-                  <Input type="number" value={i.qty} onChange={(e) => upd(i.product_id, "qty", e.target.value)} className="w-20 h-8" placeholder="Qty" />
-                  <Input type="number" value={i.cost_price} onChange={(e) => upd(i.product_id, "cost_price", e.target.value)} className="w-28 h-8" placeholder="Modal" />
-                  <button onClick={() => setItems(items.filter((x) => x.product_id !== i.product_id))} className="p-1 text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" value={i.qty} onChange={(e) => upd(i.product_id, "qty", e.target.value)} className="w-20 h-8" placeholder="Qty" />
+                    <Input type="number" value={i.cost_price} onChange={(e) => upd(i.product_id, "cost_price", e.target.value)} className="w-28 h-8" placeholder="Modal" />
+                    <Button type="button" variant="outline" onClick={() => openUnits(i.product_id)}>Kelola Unit ({(i.units||[]).length})</Button>
+                    <button onClick={() => setItems(items.filter((x) => x.product_id !== i.product_id))} className="p-1 text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  </div>
                 </div>
               ))}
             </div>
+
             <div className="flex justify-between items-center pt-2 border-t border-slate-200">
               <div className="font-mono-num text-lg font-semibold">Total: {fmtIDR(total)}</div>
               <div className="flex items-center gap-2"><Label className="text-xs text-slate-500">Bayar</Label><Input type="number" value={paid} onChange={(e) => setPaid(e.target.value)} className="w-32 h-9" /></div>
             </div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Batal</Button><Button onClick={save} className="bg-sky-600 hover:bg-sky-700" data-testid="purchase-save-btn">Simpan</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            <Button onClick={save} className="bg-sky-600 hover:bg-sky-700" data-testid="purchase-save-btn">Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Units editor dialog */}
+      <Dialog open={unitModal.open} onOpenChange={(o) => { if (!o) closeUnits(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Kelola Unit</DialogTitle></DialogHeader>
+          <div className="space-y-2 max-h-60 overflow-y-auto py-2">
+            {(items.find((it) => it.product_id === unitModal.itemId)?.units || []).map((u, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <Input placeholder="IMEI" value={u.imei} onChange={(e) => setUnit(unitModal.itemId, idx, 'imei', e.target.value)} />
+                <Input type="color" value={u.color || ''} onChange={(e) => setUnit(unitModal.itemId, idx, 'color', e.target.value)} className="w-12 h-9" />
+                <Button variant="outline" onClick={() => removeUnit(unitModal.itemId, idx)}>Hapus</Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => addUnit(unitModal.itemId)}>Tambah Unit</Button>
+            <Button onClick={closeUnits}>Selesai</Button>
+          </div>
         </DialogContent>
       </Dialog>
       <BarcodeScanner open={scanOpen} onClose={() => setScanOpen(false)} onScan={scanAdd} />

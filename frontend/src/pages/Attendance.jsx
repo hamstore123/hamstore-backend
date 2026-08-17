@@ -16,9 +16,29 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState("");
   const [shift, setShift] = useState("pagi");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [summaryView, setSummaryView] = useState(true);
 
-  const load = () => { setLoading(true); api.get("/attendance").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
-  useEffect(() => { load(); api.get("/staff").then(({ data }) => setStaff(data)).catch(() => {}); }, []);
+  const load = async () => {
+    setLoading(true);
+    try {
+      await api.get("/staff").then(({ data }) => setStaff(data)).catch(() => {});
+      if (summaryView) {
+        const params = {};
+        if (start) params.start = start;
+        if (end) params.end = end;
+        if (sel) params.staff_id = sel;
+        const { data } = await api.get("/attendance/daily", { params });
+        setRows(data || []);
+      } else {
+        const { data } = await api.get("/attendance", { params: { start, end } });
+          <PageHeader title="Absensi Staf" subtitle="Catat kehadiran, istirahat & libur karyawan (WIB)" />
+      }
+    } catch (e) { }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, [summaryView]);
 
   const record = async (kind) => {
     if (!sel) return toast.error("Pilih karyawan");
@@ -64,24 +84,37 @@ export default function Attendance() {
             );
           })}
         </div>
+        <div className="mt-3 flex gap-2 items-center">
+          <Label className="text-xs text-slate-500">Dari</Label>
+          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="border rounded px-2 py-1 text-sm" />
+          <Label className="text-xs text-slate-500">Sampai</Label>
+          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="border rounded px-2 py-1 text-sm" />
+          <Button onClick={load} className="ml-auto">Terapkan</Button>
+          <Button variant="outline" onClick={() => setSummaryView((s) => !s)}>{summaryView ? 'Lihat Mentah' : 'Lihat Rekap'}</Button>
+        </div>
       </div>
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200"><tr>
-            {["Karyawan", "Aktivitas", "Shift", "Waktu (WIB)", "Terlambat", "Lembur", "Tanggal"].map((h) => <th key={h} className="px-4 py-3 text-left font-medium text-slate-500">{h}</th>)}
-          </tr></thead>
+          <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+            <tr>
+              { ["Karyawan","Tanggal","Shift","Masuk","Mulai Istirahat","Selesai Istirahat","Pulang","Total Jam","Terlambat","Lembur"].map((h) => <th key={h} className="px-4 py-3 text-left font-medium text-slate-500">{h}</th>) }
+            </tr>
+          </thead>
           <tbody className="divide-y divide-slate-100">
-            {loading ? <tr><td colSpan={7}><Loading /></td></tr>
-              : rows.length === 0 ? <tr><td colSpan={7}><Empty /></td></tr>
-              : rows.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3">{r.staff_name}</td>
-                  <td className="px-4 py-3"><span className={KIND_TONE[r.kind] || "text-slate-600"}>{KIND_LABEL[r.kind] || r.kind}</span></td>
+            {loading ? <tr><td colSpan={10}><Loading /></td></tr>
+              : rows.length === 0 ? <tr><td colSpan={10}><Empty /></td></tr>
+              : rows.map((r, idx) => (
+                <tr key={`${r.staff_id}-${r.date}-${idx}`} className={`hover:bg-slate-50 ${idx%2===0? 'bg-white':'bg-slate-50'}`}>
+                  <td className="px-4 py-3 font-medium">{r.staff_name}</td>
+                  <td className="px-4 py-3">{r.date}</td>
                   <td className="px-4 py-3 capitalize">{r.shift}</td>
-                  <td className="px-4 py-3 font-mono-num">{r.wib_time}</td>
-                  <td className="px-4 py-3 font-mono-num text-red-600">{r.late_minutes ? `${r.late_minutes}m` : "-"}</td>
-                  <td className="px-4 py-3 font-mono-num text-green-600">{r.overtime_minutes ? `${r.overtime_minutes}m` : "-"}</td>
-                  <td className="px-4 py-3 text-slate-500">{r.wib_date}</td>
+                  <td className="px-4 py-3 font-mono-num">{r.in_time || '-'}</td>
+                  <td className="px-4 py-3 font-mono-num">{r.break_start || '-'}</td>
+                  <td className="px-4 py-3 font-mono-num">{r.break_end || '-'}</td>
+                  <td className="px-4 py-3 font-mono-num">{r.out_time || '-'}</td>
+                  <td className="px-4 py-3 font-mono-num">{r.total_minutes ? `${Math.round((r.total_minutes||0)/60*100)/100} jam` : '-'}</td>
+                  <td className="px-4 py-3 font-mono-num text-red-600">{r.late_minutes ? `${r.late_minutes}m` : '-'}</td>
+                  <td className="px-4 py-3 font-mono-num text-green-600">{r.overtime_minutes ? `${r.overtime_minutes}m` : '-'}</td>
                 </tr>
               ))}
           </tbody>

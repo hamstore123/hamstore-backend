@@ -267,10 +267,18 @@ class SaleIn(BaseModel):
 
 
 class PurchaseItemIn(BaseModel):
-    product_id: str
-    product_name: str
-    qty: int
-    cost_price: float
+    product_id: Optional[str] = None
+    product_name: Optional[str] = ""
+    qty: int = 1
+    cost_price: float = 0
+    imeis: Optional[List[str]] = None
+    color: Optional[str] = None
+    battery_health: Optional[str] = None
+    condition: Optional[str] = None
+    internet_type: Optional[str] = None
+    device_status: Optional[str] = None
+    # product_template can include product fields to create a new product when product_id is not provided
+    product_template: Optional[dict] = None
 
 
 class PurchaseIn(BaseModel):
@@ -532,6 +540,12 @@ async def list_products(
     request: Request,
     q: Optional[str] = None,
     category: Optional[str] = None,
+    brand: Optional[str] = None,
+    supplier_id: Optional[str] = None,
+    condition: Optional[str] = None,
+    internet_type: Optional[str] = None,
+    device_status: Optional[str] = None,
+    stock_status: Optional[str] = None,  # 'available' or 'out'
     min_stock: Optional[int] = None,
     sort_by: Optional[str] = "created_at",
     sort_dir: Optional[int] = -1,
@@ -549,6 +563,21 @@ async def list_products(
         ]
     if category:
         query["category"] = category
+    if brand:
+        query["brand"] = brand
+    if supplier_id:
+        query["supplier_id"] = supplier_id
+    if condition:
+        query["condition"] = condition
+    if internet_type:
+        query["internet_type"] = internet_type
+    if device_status:
+        query["device_status"] = device_status
+    if stock_status:
+        if stock_status == "out":
+            query["stock"] = {"$lte": 0}
+        elif stock_status == "available":
+            query["stock"] = {"$gte": 1}
     if min_stock is not None:
         query["stock"] = {"$lte": min_stock}
     allowed_sort = {"name", "sell_price", "cost_price", "stock", "created_at"}
@@ -587,8 +616,32 @@ async def delete_product(pid: str, user: dict = Depends(get_current_user)):
 
 # ---------------- Customers ----------------
 @api.get("/customers")
-async def list_customers(user: dict = Depends(get_current_user)):
-    return await db.customers.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+async def list_customers(
+    request: Request,
+    q: Optional[str] = None,
+    sort_by: Optional[str] = "created_at",
+    sort_dir: Optional[int] = -1,
+    page: int = 1,
+    limit: int = 100,
+    user: dict = Depends(get_current_user),
+):
+    query = {}
+    if q:
+        query["$or"] = [
+            {"name": {"$regex": q, "$options": "i"}},
+            {"phone": {"$regex": q, "$options": "i"}},
+            {"email": {"$regex": q, "$options": "i"}},
+            {"imei": {"$regex": q, "$options": "i"}},
+        ]
+    allowed_sort = {"name", "created_at", "phone"}
+    sb = sort_by if sort_by in allowed_sort else "created_at"
+    sd = -1 if sort_dir == -1 else 1
+    # If no pagination/search params provided, return full legacy list for compatibility
+    if not any(k in request.query_params for k in ("page", "limit", "sort_by", "sort_dir", "q")):
+        return await db.customers.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    skip = max(0, (page - 1) * limit)
+    rows = await db.customers.find(query, {"_id": 0}).sort(sb, sd).skip(skip).limit(limit).to_list(length=limit)
+    return {"page": page, "limit": limit, "items": rows}
 
 
 @api.post("/customers")
@@ -757,9 +810,45 @@ async def create_purchase(body: PurchaseIn, user: dict = Depends(get_current_use
         "date": now_iso(), "status": "paid" if body.paid >= subtotal else "hutang",
     }
     await db.purchases.insert_one(doc)
+    # Process each purchased item: support creating new products and per-unit IMEIs
     for item in body.items:
-        await db.products.update_one({"id": item.product_id}, {"$inc": {"stock": item.qty}, "$set": {"cost_price": item.cost_price}})
-        await _log_stock(item.product_id, item.product_name, item.qty, "purchase", invoice, user["id"])
+        # determine qty based on imeis if provided
+        qty = item.qty
+        imeis = item.imeis or []
+        if imeis and len(imeis) != 0:
+            qty = len(imeis)
+
+        # if product_id missing but product_template provided, create product
+        if not item.product_id and item.product_template:
+            pdoc = {**item.product_template}
+            pdoc["id"] = new_id()
+            pdoc["name"] = pdoc.get("name") or item.product_name or "Produk Baru"
+            pdoc["stock"] = qty
+            pdoc["cost_price"] = item.cost_price
+            pdoc["created_at"] = now_iso()
+            await db.products.insert_one(pdoc)
+            product_id = pdoc["id"]
+        else:
+            product_id = item.product_id
+
+        if product_id:
+            # update product stock
+            await db.products.update_one({"id": product_id}, {"$inc": {"stock": qty}, "$set": {"cost_price": item.cost_price}})
+            await _log_stock(product_id, item.product_name, qty, "purchase", invoice, user["id"])
+
+            # create inventory unit records for each IMEI (if provided)
+            for im in imeis:
+                u = {
+                    "id": new_id(), "product_id": product_id, "imei": im,
+                    "cost_price": item.cost_price, "color": item.color,
+                    "battery_health": item.battery_health, "condition": item.condition,
+                    "internet_type": item.internet_type, "device_status": item.device_status,
+                    "created_at": now_iso(), "status": "in_stock",
+                }
+                await db.inventory_units.insert_one(u)
+        else:
+            # no product_id and no template: skip
+            continue
     if doc["due"] > 0:
         await db.debts.insert_one({
             "id": new_id(), "kind": "hutang", "party_name": body.supplier_name or "Umum",
@@ -982,6 +1071,80 @@ async def attendance_summary(start: Optional[str] = None, end: Optional[str] = N
             "late_minutes": d["late_total"], "overtime_minutes": d["overtime_total"],
         })
     return result
+
+
+@api.get("/attendance/daily")
+async def attendance_daily(start: Optional[str] = None, end: Optional[str] = None, staff_id: Optional[str] = None, user: dict = Depends(get_current_user)):
+    q = {}
+    if start or end:
+        q["date"] = {}
+        if start: q["date"]["$gte"] = start
+        if end: q["date"]["$lte"] = end
+    if staff_id:
+        q["staff_id"] = staff_id
+    rows = await db.attendance.find(q, {"_id": 0}).to_list(5000)
+    # group by staff_id and wib_date
+    groups = {}
+    for r in rows:
+        key = (r.get("staff_id"), r.get("wib_date"))
+        g = groups.setdefault(key, {"staff_id": r.get("staff_id"), "staff_name": r.get("staff_name"), "date": r.get("wib_date"), "shift": r.get("shift"), "entries": []})
+        g["entries"].append(r)
+
+    out = []
+    from datetime import datetime as _dt
+    for (sid, wdate), g in groups.items():
+        entries = g["entries"]
+        # helper to parse time "HH:MM:SS"
+        def to_minutes(t):
+            try:
+                hh, mm, ss = map(int, t.split(":"))
+                return hh * 60 + mm
+            except Exception:
+                return None
+
+        in_times = [e.get("wib_time") for e in entries if e.get("kind") == "in"]
+        out_times = [e.get("wib_time") for e in entries if e.get("kind") == "out"]
+        bstart_times = [e.get("wib_time") for e in entries if e.get("kind") == "break_start"]
+        bend_times = [e.get("wib_time") for e in entries if e.get("kind") == "break_end"]
+
+        in_time = min(in_times) if in_times else None
+        out_time = max(out_times) if out_times else None
+        break_start = min(bstart_times) if bstart_times else None
+        break_end = min(bend_times) if bend_times else None
+
+        total_minutes = None
+        try:
+            if in_time and out_time:
+                im = to_minutes(in_time); om = to_minutes(out_time)
+                total = (om - im) if (im is not None and om is not None) else None
+                # subtract break duration if both present
+                if break_start and break_end:
+                    bm = to_minutes(break_start); be = to_minutes(break_end)
+                    if bm is not None and be is not None:
+                        total -= max(0, be - bm)
+                total_minutes = total
+        except Exception:
+            total_minutes = None
+
+        late_total = sum((e.get("late_minutes") or 0) for e in entries)
+        overtime_total = sum((e.get("overtime_minutes") or 0) for e in entries)
+
+        out.append({
+            "staff_id": sid,
+            "staff_name": g.get("staff_name"),
+            "date": g.get("date"),
+            "shift": g.get("shift"),
+            "in_time": in_time,
+            "break_start": break_start,
+            "break_end": break_end,
+            "out_time": out_time,
+            "total_minutes": total_minutes,
+            "late_minutes": late_total,
+            "overtime_minutes": overtime_total,
+        })
+    # sort by date desc then staff
+    out.sort(key=lambda x: (x.get("date") or "", x.get("staff_name") or ""), reverse=True)
+    return out
 
 
 # ---------------- PPOB ----------------

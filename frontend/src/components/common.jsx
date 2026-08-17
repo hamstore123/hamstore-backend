@@ -1,10 +1,10 @@
 import { Loader2 } from "lucide-react";
 
 export const PageHeader = ({ title, subtitle, children }) => (
-  <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div className="page-header">
     <div>
-      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">{title}</h1>
-      {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+      <h1 className="page-title">{title}</h1>
+      {subtitle && <p className="page-subtitle">{subtitle}</p>}
     </div>
     <div className="flex items-center gap-2">{children}</div>
   </div>

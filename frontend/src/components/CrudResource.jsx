@@ -18,11 +18,18 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 export default function CrudResource({
   title, subtitle, endpoint, columns, fields, searchable = true,
   canCreate = true, canEdit = true, canDelete = true, transform, totalField, scanSearch = false,
+  filters = [], sortOptions = [], // filters: [{name,label,type,options}], sortOptions: [{value,label}]
 }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [dynamicOptions, setDynamicOptions] = useState({});
+  const [filtersState, setFiltersState] = useState({});
+  const [sortBy, setSortBy] = useState("");
+  const [sortDir, setSortDir] = useState(-1);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(50);
+  const [totalItems, setTotalItems] = useState(null);
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [supplierField, setSupplierField] = useState(null);
   const [supplierForm, setSupplierForm] = useState({ name: "", phone: "", address: "" });
@@ -55,14 +62,33 @@ export default function CrudResource({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get(endpoint, { params: q && searchable ? { q } : {} });
-      setRows(Array.isArray(data) ? data : data.items || []);
+      const params = {};
+      if (searchable && q) params.q = q;
+      // attach filters
+      Object.entries(filtersState || {}).forEach(([k, v]) => { if (v !== "" && v != null) params[k] = v; });
+      if (sortBy) {
+        if (typeof sortBy === "string" && sortBy.startsWith("-")) {
+          params.sort_by = sortBy.slice(1);
+          params.sort_dir = -1;
+        } else {
+          params.sort_by = sortBy;
+          params.sort_dir = sortDir;
+        }
+      }
+      if (page) params.page = page;
+      if (limit) params.limit = limit;
+      const { data } = await api.get(endpoint, { params });
+      const items = Array.isArray(data) ? data : data.items || [];
+      setRows(items);
+      if (!Array.isArray(data) && data.limit) setTotalItems((data.page || 1) * data.limit + (items.length || 0));
     } catch (e) {
       toast.error("Gagal memuat data");
     } finally { setLoading(false); }
-  }, [endpoint, q, searchable]);
+  }, [endpoint, q, searchable, filtersState, sortBy, sortDir, page, limit]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => { setPage(1); }, [q, JSON.stringify(filtersState), sortBy, sortDir]);
 
   useEffect(() => {
     const map = {};
@@ -153,20 +179,47 @@ export default function CrudResource({
           </Button>
         )}
       </PageHeader>
-
-      {searchable && (
-        <div className="mb-4 flex gap-2 max-w-sm">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari..." className="pl-9" data-testid="crud-search" />
-          </div>
+      <div className="mb-4 flex flex-col gap-3">
+        <div className="flex gap-2 items-center">
+          {searchable && (
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari..." className="pl-9" data-testid="crud-search" />
+            </div>
+          )}
           {scanSearch && (
             <Button type="button" variant="outline" onClick={() => setScan({ search: true })} data-testid="crud-scan-btn">
               <ScanLine className="w-4 h-4" />
             </Button>
           )}
+          {sortOptions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="border rounded px-2 py-1 text-sm">
+                <option value="">Urutkan</option>
+                {sortOptions.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <button onClick={() => setSortDir((d) => (d === -1 ? 1 : -1))} className="px-2 py-1 border rounded">{sortDir === -1 ? "↓" : "↑"}</button>
+            </div>
+          )}
         </div>
-      )}
+        {filters.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {filters.map((f) => (
+              <div key={f.name} className="flex items-center gap-2">
+                <label className="text-xs text-slate-500">{f.label}</label>
+                {f.type === "select" ? (
+                  <select value={filtersState[f.name] ?? ""} onChange={(e) => setFiltersState((p) => ({ ...p, [f.name]: e.target.value }))} className="border rounded px-2 py-1 text-sm">
+                    <option value="">Semua</option>
+                    {(f.options || []).map((o) => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}
+                  </select>
+                ) : (
+                  <Input value={filtersState[f.name] ?? ""} onChange={(e) => setFiltersState((p) => ({ ...p, [f.name]: e.target.value }))} placeholder={f.label} className="text-sm" />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {totalField && (
         <div className="mb-4 bg-white rounded-xl border border-slate-200 shadow-sm p-4 inline-flex items-center gap-3" data-testid="crud-total">
@@ -220,12 +273,20 @@ export default function CrudResource({
             </tbody>
           </table>
         </div>
+        <div className="px-4 py-3 border-t bg-slate-50 flex items-center justify-between">
+          <div className="text-sm text-slate-500">{rows.length} item{rows.length !== 1 ? 's' : ''}</div>
+          <div className="flex items-center gap-2">
+            <Button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} variant="outline">Prev</Button>
+            <div className="text-sm">Halaman {page}</div>
+            <Button disabled={rows.length < limit} onClick={() => setPage((p) => p + 1)} variant="outline">Next</Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[80vh]">
           <DialogHeader><DialogTitle>{editing ? "Edit" : "Tambah"} {title}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-2">
+          <div className="grid grid-cols-2 gap-4 py-2 overflow-y-auto" style={{ maxHeight: '60vh' }}>
             {fields.map((f) => (
               <div key={f.name} className={f.full ? "col-span-2" : "col-span-1"}>
                 <Label className="text-xs text-slate-500">{f.label}{f.required && " *"}</Label>
@@ -278,12 +339,16 @@ export default function CrudResource({
               </div>
             ))}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={save} disabled={saving} className="bg-sky-600 hover:bg-sky-700" data-testid="crud-save-btn">
-              {saving ? "Menyimpan..." : "Simpan"}
-            </Button>
-          </DialogFooter>
+          <div className="save-footer">
+            <div style={{ marginRight: 'auto' }}>
+              <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            </div>
+            <div>
+              <Button onClick={save} disabled={saving} className="bg-sky-600 hover:bg-sky-700 btn-shadow" data-testid="crud-save-btn">
+                {saving ? "Menyimpan..." : "Simpan"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
