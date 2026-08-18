@@ -46,6 +46,7 @@ export default function Products() {
       endpoint="/products"
       scanSearch
       transform={transform}
+      requiresLocation
       filters={filters}
       sortOptions={sortOptions}
       columns={[
@@ -84,7 +85,7 @@ export default function Products() {
         { name: "internet_type", label: "Tipe Internet", type: "select", options: ["WiFi Only", "All Operator"] },
         { name: "device_status", label: "Status Perangkat", type: "select", options: ["Bea Cukai (resmi)", "iBox", "Lainnya"] },
         { name: "supplier_id", label: "Supplier", type: "supplier", options: suppliers },
-        { name: "color", label: "Warna", type: "color" },
+        { name: "color", label: "Warna", type: "text", placeholder: "Contoh: Midnight Black" },
         { name: "description", label: "Deskripsi", full: true },
       ]}
     />

@@ -12,12 +12,14 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Search, ScanLine } from "lucide-react";
+import { ensureStoreLocation } from "@/lib/geofence";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
 // columns: [{key,label,money,render}]  fields: [{name,label,type,options,money,required}]
 export default function CrudResource({
   title, subtitle, endpoint, columns, fields, searchable = true,
   canCreate = true, canEdit = true, canDelete = true, transform, totalField, scanSearch = false,
+  requiresLocation = false,
   filters = [], sortOptions = [], // filters: [{name,label,type,options}], sortOptions: [{value,label}]
 }) {
   const [rows, setRows] = useState([]);
@@ -132,6 +134,7 @@ export default function CrudResource({
         return toast.error(`${f.label} wajib diisi`);
     setSaving(true);
     try {
+      if (requiresLocation) await ensureStoreLocation();
       let payload = { ...form };
       fields.forEach((f) => { if (f.type === "number") payload[f.name] = Number(payload[f.name] || 0); });
       if (transform) payload = transform(payload, editing);
@@ -155,7 +158,7 @@ export default function CrudResource({
       // restore scroll
       if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: prevScroll }), 50);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Gagal menyimpan");
+      toast.error(e?.response?.data?.detail || e?.message || "Gagal menyimpan");
     } finally { setSaving(false); }
   };
 
@@ -334,6 +337,7 @@ export default function CrudResource({
                         <Input
                           type={f.type === "number" ? "number" : f.type === "color" ? "color" : "text"}
                           value={form[f.name] ?? ""}
+                          placeholder={f.placeholder || ""}
                           onChange={(e) => setForm({ ...form, [f.name]: e.target.value })}
                           className="mt-1" data-testid={`field-${f.name}`}
                         />

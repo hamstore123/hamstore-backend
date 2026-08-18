@@ -8,15 +8,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import { Select as SimpleSelect } from "@/components/ui/select";
 
-const KINDS = [["pulsa", "Pulsa"], ["token_pln", "Token PLN"], ["paket_data", "Paket Data"], ["bpjs", "BPJS"], ["pdam", "PDAM"]];
+const KINDS = [["pulsa", "Pulsa"], ["token_pln", "Token Listrik"], ["paket_data", "Paket Data"], ["bpjs", "BPJS"], ["pdam", "PDAM"], ["transfer", "Transfer"], ["tarik_tunai", "Tarik Tunai"]];
+const PAYMENT_METHODS = [["cash", "Cash"], ["transfer_bank", "Transfer Bank"], ["qris", "QRIS"], ["edc", "EDC / Kartu"], ["paylater_shopee", "PayLater Shopee"], ["paylater_kredivo", "PayLater Kredivo"], ["paylater_akulaku", "PayLater Akulaku"]];
 
 export default function PPOB() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ kind: "pulsa", customer_number: "", customer_name: "", nominal: 0, price: 0, cost: 0, payment_method: "cash" });
+  const [form, setForm] = useState({ kind: "pulsa", customer_number: "", customer_name: "", nominal: 0, price: 0, cost: 0, payment_method: "cash", description: "" });
   const [q, setQ] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -35,7 +35,7 @@ export default function PPOB() {
       const { data } = await api.post("/ppob", { ...form, nominal: Number(form.nominal), price: Number(form.price), cost: Number(form.cost) });
       setRows((p) => [data, ...(p || [])]);
       toast.success("Transaksi PPOB tersimpan"); setOpen(false);
-      setForm({ kind: "pulsa", customer_number: "", customer_name: "", nominal: 0, price: 0, cost: 0, payment_method: "cash" });
+      setForm({ kind: "pulsa", customer_number: "", customer_name: "", nominal: 0, price: 0, cost: 0, payment_method: "cash", description: "" });
       if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: prevScroll }), 50);
     } catch (e) { toast.error(e?.response?.data?.detail || "Gagal menyimpan PPOB"); }
   };
@@ -65,11 +65,11 @@ export default function PPOB() {
         </div>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200"><tr>
-            {["Invoice", "Jenis", "No. Pelanggan", "Nominal", "Harga", "Modal", "Laba", "Tanggal"].map((h) => <th key={h} className="px-4 py-3 text-left font-medium text-slate-500">{h}</th>)}
+            {["Invoice", "Jenis", "No. Pelanggan", "Nominal", "Harga", "Modal", "Laba", "Pembayaran", "Keterangan", "Tanggal"].map((h) => <th key={h} className="px-4 py-3 text-left font-medium text-slate-500">{h}</th>)}
           </tr></thead>
           <tbody className="divide-y divide-slate-100">
-            {loading ? <tr><td colSpan={8}><Loading /></td></tr>
-              : rows.length === 0 ? <tr><td colSpan={8}><Empty /></td></tr>
+            {loading ? <tr><td colSpan={10}><Loading /></td></tr>
+              : rows.length === 0 ? <tr><td colSpan={10}><Empty /></td></tr>
               : rows.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-mono-num text-xs">{r.invoice}</td>
@@ -79,6 +79,8 @@ export default function PPOB() {
                   <td className="px-4 py-3 font-mono-num">{fmtIDR(r.price)}</td>
                   <td className="px-4 py-3 font-mono-num text-slate-500">{fmtIDR(r.cost)}</td>
                   <td className="px-4 py-3 font-mono-num text-green-600">{fmtIDR(r.profit)}</td>
+                  <td className="px-4 py-3 capitalize">{PAYMENT_METHODS.find(([v]) => v === r.payment_method)?.[1] || r.payment_method}</td>
+                  <td className="px-4 py-3 text-slate-500 max-w-[220px] truncate">{r.description || "-"}</td>
                   <td className="px-4 py-3 text-slate-500">{fmtDate(r.date)}</td>
                 </tr>
               ))}
@@ -107,6 +109,13 @@ export default function PPOB() {
             <div><Label className="text-xs text-slate-500">Nominal</Label><Input type="number" value={form.nominal} onChange={(e) => setForm({ ...form, nominal: e.target.value })} className="mt-1" /></div>
             <div><Label className="text-xs text-slate-500">Harga Jual</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-1" /></div>
             <div><Label className="text-xs text-slate-500">Modal</Label><Input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} className="mt-1" /></div>
+            <div><Label className="text-xs text-slate-500">Metode Pembayaran</Label>
+              <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>{PAYMENT_METHODS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2"><Label className="text-xs text-slate-500">Keterangan / Deskripsi</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" placeholder="Contoh: transfer antar bank pelanggan" /></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Batal</Button><Button onClick={create} className="bg-sky-600 hover:bg-sky-700" data-testid="ppob-save-btn">Simpan</Button></DialogFooter>
         </DialogContent>

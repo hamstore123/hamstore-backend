@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { ensureStoreLocation } from "@/lib/geofence";
 import { ClipboardCheck, Boxes, Wallet, TrendingUp, Package, AlertTriangle } from "lucide-react";
 
 const Card = ({ icon: Icon, label, value, tone = "bg-slate-100 text-slate-600", grad }) => (
@@ -48,6 +49,7 @@ export default function Stock() {
     setSavingOpname(true);
     try {
       const prevScroll = typeof window !== "undefined" ? window.scrollY : 0;
+      await ensureStoreLocation();
       const { data } = await api.post("/stock/opname", { note: "Opname", items });
       // prepend opname to moves
       setMoves((m) => [data, ...(m || [])]);
@@ -61,7 +63,7 @@ export default function Stock() {
       toast.success("Opname tersimpan"); setOpen(false); setPhys({});
       if (typeof window !== "undefined") setTimeout(() => window.scrollTo({ top: prevScroll }), 50);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Gagal menyimpan opname");
+      toast.error(e?.response?.data?.detail || e?.message || "Gagal menyimpan opname");
     } finally { setSavingOpname(false); }
   };
 

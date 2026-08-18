@@ -141,8 +141,23 @@
 ##         agent: "testing"
 ##         comment: "CODE IMPLEMENTATION: ✓ CORRECT (7/7 tests passed) - No hardcoded allow_origins=['*'], no allow_origin_regex, reads from os.environ CORS_ORIGINS, splits by comma, strips whitespace, filters wildcards, allow_credentials=True present. DEPLOYMENT ENVIRONMENT: ✗ CRITICAL ISSUE - CORS_ORIGINS='*' in /app/backend/.env line 3 gets filtered out by code, resulting in EMPTY allowed origins list []. ALL cross-origin requests from https://hamstoretegal.com and other origins are REJECTED (no Access-Control-Allow-Origin header in response). Preflight OPTIONS requests return 400 Bad Request. DISTINCTION: Code fix is complete and correct; deployment env configuration needs update. RECOMMENDED FIX: Update /app/backend/.env CORS_ORIGINS='https://hamstoretegal.com,https://www.hamstoretegal.com' for production, or CORS_ORIGINS='https://phone-shop-hub-18.preview.emergentagent.com' for testing environment. Verified code logic works correctly when proper origins provided (tested with temporary env var)."
 
+##   - task: "Retail workflow enhancements"
+##     implemented: true
+##     working: true
+##     file: "/app/backend/server.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "Menambah admin_fee pada penjualan, metode PPOB/deskripsi, unit pembelian (IMEI + warna) agar stok otomatis terhubung, dan field aset pembelian. Frontend ditambah geofence 500m pada perubahan stok/absensi."
+##       - working: true
+##         agent: "testing"
+##         comment: "Retail workflow enhancements testing complete (13/13 tests PASSED). ✓ Python syntax and imports verified. ✓ SaleIn model accepts admin_fee and payment_method (cash, transfer_bank, paylater_shopee, paylater_kredivo, paylater_akulaku, qris, edc). ✓ PPOBIn model accepts kind (pulsa, token_pln, paket_data, bpjs, pdam, transfer, tarik_tunai) and description field. ✓ PurchaseItemIn model has units field with IMEI/color support. ✓ Purchase endpoint correctly maps units to inventory_units collection (code inspection verified). ✓ AssetIn model has all required fields: purchase_source, supplier_name, invoice_number, purchase_price, warranty_until. ✓ Auth working: owner and staff login successful. ✓ RBAC working: staff can access sales/ppob, blocked from purchases. ✓ POST /api/sales accepts all 7 payment methods with admin_fee. ✓ POST /api/ppob accepts all 7 kinds with description. Backend logs show no errors. Note: Minimal test data created (7 sales + 7 PPOB transactions) to verify endpoint behavior - unavoidable for POST endpoint testing."
+
 ## frontend:
-##   - task: "Modern animated visual system"
+##   - task: "Modern animated visual system and retail workflows"
 ##     implemented: true
 ##     working: true
 ##     file: "/app/frontend/src/index.css"
@@ -150,20 +165,26 @@
 ##     priority: "high"
 ##     needs_retesting: false
 ##     status_history:
-##       - working: NA
-##         agent: "main"
-##         comment: "Redesign global, sidebar/header transitions, route entrance animation, login motion layout"
-##       - working: NA
-##         agent: "main"
-##         comment: "Login troubleshooting: frontend/.env tidak ada sehingga API base menjadi undefined; env dipulihkan dari APP_URL yang sudah digunakan backend tests, axios kini mengirim credentials cookie."
 ##       - working: true
 ##         agent: "testing"
-##         comment: "Frontend UI testing complete via browser automation. OWNER LOGIN (admin@tokohp.com): ✓ Login page loads with animations, ✓ Form submission successful, ✓ Redirect to dashboard, ✓ No console errors, ✓ No undefined/api requests, ✓ API uses correct backend URL. STAFF LOGIN (staf@tokohp.com): ✓ Login successful, ✓ Redirect to dashboard, ✓ RBAC working (7 owner-only routes hidden: pembelian, supplier, hutang-piutang, staf, kinerja, log-aktivitas, laporan). REDESIGN VERIFICATION: ✓ Sidebar gradient background visible, ✓ Page entrance animations working (Dashboard→Kasir→Produk), ✓ Button transition effects present (box-shadow, transform, border-color, background-color), ✓ Mobile menu animation working (390x844 viewport), ✓ Logout redirects to /login. Minor: Staff users don't see 'Dashboard' nav item in sidebar (not in STAFF_ALLOWED set in Layout.jsx line 49-67), but can access dashboard page. All critical functionality working, no login bugs detected."
+##         comment: "Previous frontend testing passed for login, route animations, mobile menu, logout, and RBAC."
+##       - working: NA
+##         agent: "main"
+##         comment: "New frontend changes need browser verification: tax/admin and payment methods, PPOB kinds/description, purchase units, product color text, save flows, geofence error states, and animations."
+##       - working: false
+##         agent: "testing"
+##         comment: "Comprehensive UI testing complete. PASSED (9/11): ✅ Login form (placeholder 'nama@tokomu.com', animations visible, responsive desktop/mobile, owner login successful, no console errors), ✅ Dashboard (8 KPI cards with animations, trend chart present, no layout overflow), ✅ Kasir (Tax field, Admin/Add-on field present, total calculation works, all 8 payment methods present: Cash, Transfer Bank, PayLater Shopee, PayLater Kredivo, PayLater Akulaku, QRIS, EDC/Kartu, Hutang), ✅ PPOB dialog (all 7 kinds present: Pulsa, Token Listrik, Paket Data, BPJS, PDAM, Transfer, Tarik Tunai; Keterangan/Deskripsi field present; payment methods present), ✅ Purchases dialog (supplier, product, payment method, notes field all present; units modal for IMEI/color available), ✅ Products dialog (color field is TEXT input with placeholder 'Contoh: Midnight Black' - correct, not color picker), ✅ Attendance geofence (correctly shows 'Anda berada di luar jangkauan toko.' when outside radius), ✅ Master data dialogs (Service Prices, Suppliers, Expenses all open with save buttons). FAILED (2/11): ❌ Stock Opname geofence shows generic 'Gagal menyimpan opname' error instead of specific geofence message 'Anda berada di luar jangkauan toko.' - geofence check may not be working correctly in Stock.jsx saveOpname function. ❌ Assets page MISSING purchase-related fields (purchase_source, supplier_name, invoice_number, purchase_price, warranty_until) - current Assets.jsx only has: name, category, quantity, condition, acquired_date, location, value, note. Review request expects Assets to show source/supplier/invoice/purchase price/warranty but these fields are not implemented in /app/frontend/src/pages/Assets.jsx."
+##       - working: NA
+##         agent: "main"
+##         comment: "Fixed stock opname catch to surface the geofence message and added all requested asset purchase fields; retesting now."
+##       - working: true
+##         agent: "testing"
+##         comment: "Retest complete - BOTH FIXES VERIFIED (2/2 PASS). ✅ Stock Opname geofence: Toast now shows correct message 'Anda berada di luar jangkauan toko.' (NOT 'Gagal menyimpan opname'), no POST /api/stock/opname request made when outside radius. Fix in Stock.jsx line 66 correctly surfaces e.message from ensureStoreLocation() rejection. ✅ Assets purchase fields: All 5 fields present and functional in Add Asset dialog: Dibeli Dari (purchase_source with placeholder 'Contoh: Supplier / Toko Online'), Nama Supplier (supplier_name), Nomor Invoice (invoice_number), Harga Beli (purchase_price, type number), Garansi Sampai (warranty_until, type date). Save button (Simpan) present with loading state capability. Table columns also show new fields: Dibeli Dari, Supplier, No. Invoice, Harga Beli, Garansi Sampai. ✅ No console errors on /stok or /aset pages. ✅ Build and runtime stable. Both previously failed tests now PASS."
 
 ## metadata:
 ##   created_by: "main_agent"
-##   version: "1.3"
-##   test_sequence: 3
+##   version: "1.5"
+##   test_sequence: 5
 ##   run_ui: true
 ## test_plan:
 ##   current_focus:
@@ -182,3 +203,10 @@
 ##     message: "Frontend UI testing complete. Tested owner and staff login flows through browser automation. NO LOGIN BUGS FOUND - both accounts login successfully without errors, API requests use correct backend URL (no undefined/api requests), no console errors. Redesign elements verified: sidebar gradient, page entrance animations, button transitions, mobile menu animation all working. RBAC working correctly for staff. Minor UI issue: staff don't see Dashboard nav item in sidebar (STAFF_ALLOWED set missing '/' in Layout.jsx), but can access dashboard page. All critical functionality PASS. Ready for user acceptance."
 ##   - agent: "testing"
 ##     message: "CORS credentials allowlist testing complete. CODE FIX: ✓ VERIFIED CORRECT - server.py lines 1911-1922 properly implements: reads CORS_ORIGINS from environment, splits by comma, strips whitespace, filters out wildcards (origin.strip() != '*'), allow_credentials=True enabled, no hardcoded allow_origins=['*'], no allow_origin_regex. DEPLOYMENT CONFIG: ✗ CRITICAL - /app/backend/.env line 3 has CORS_ORIGINS='*' which gets filtered out by the code, resulting in empty allowed origins list []. This causes ALL cross-origin requests to be REJECTED. Tested preflight requests from https://hamstoretegal.com, https://www.hamstoretegal.com, https://hamstore-backend-production.up.railway.app, https://phone-shop-hub-18.preview.emergentagent.com - all return no Access-Control-Allow-Origin header (rejected). Runtime check confirms cors_origins=[] after filtering. Code logic verified working correctly with test env vars. DISTINCTION: Code implementation is production-ready; deployment environment variable needs update. Main agent should update CORS_ORIGINS in .env to actual domain list (not '*') for production deployment."
+##   - agent: "testing"
+##     message: "Comprehensive frontend testing complete after compile error fixes and retail enhancements. PASSED (9/11 tests): ✅ Login (placeholder correct, animations, responsive, owner login works, no console errors), ✅ Dashboard (8 KPI cards animated, trend chart, no overflow), ✅ Kasir (Tax & Admin/Add-on fields present, all 8 payment methods: Cash, Transfer Bank, PayLater Shopee/Kredivo/Akulaku, QRIS, EDC, Hutang), ✅ PPOB (all 7 kinds: Pulsa, Token Listrik, Paket Data, BPJS, PDAM, Transfer, Tarik Tunai; Keterangan field; payment methods), ✅ Purchases (supplier, product, units modal for IMEI/color, payment, notes), ✅ Products (color is TEXT input with placeholder 'Contoh: Midnight Black', not color picker), ✅ Attendance geofence (correctly shows 'Anda berada di luar jangkauan toko.'), ✅ Master data (Service Prices, Suppliers, Expenses dialogs open with save buttons). FAILED (2/11): ❌ Stock Opname geofence shows generic 'Gagal menyimpan opname' instead of geofence message - ensureStoreLocation() may not be rejecting properly in Stock.jsx saveOpname. ❌ Assets page MISSING purchase fields (purchase_source, supplier_name, invoice_number, purchase_price, warranty_until) - Assets.jsx only has name/category/quantity/condition/acquired_date/location/value/note, but review request expects purchase-related fields to be displayed."
+
+##   - agent: "testing"
+##     message: "Retail workflow enhancements testing complete. ALL TESTS PASSED (13/13): ✓ Syntax/imports clean, ✓ SaleIn accepts admin_fee + 7 payment methods (cash, transfer_bank, paylater_shopee, paylater_kredivo, paylater_akulaku, qris, edc), ✓ PPOBIn accepts 7 kinds (pulsa, token_pln, paket_data, bpjs, pdam, transfer, tarik_tunai) + description, ✓ PurchaseItemIn has units field, ✓ Purchase endpoint maps units[{imei,color}] to inventory_units (verified via code inspection lines 826-862), ✓ AssetIn has purchase_source, supplier_name, invoice_number, purchase_price, warranty_until, ✓ Auth/RBAC working (owner+staff login, staff can access sales/ppob, blocked from purchases). Backend logs clean, no runtime errors. Note: 7 sales + 7 PPOB test transactions created during endpoint verification (minimal impact, unavoidable for POST testing). No data seeding/reset performed. CORS_ORIGINS='*' issue remains (separate task). All retail enhancements working correctly."
+##   - agent: "testing"
+##     message: "RETEST COMPLETE - Both previously failed frontend tests now PASS. ✅ Stock Opname geofence (1/2): Correctly shows toast 'Anda berada di luar jangkauan toko.' when mocked location is outside 500m radius, no POST /api/stock/opname made. ✅ Assets purchase fields (2/2): All 5 fields present in Add dialog and table: Dibeli Dari, Nama Supplier, Nomor Invoice, Harga Beli, Garansi Sampai - all functional and can be filled. ✅ No console errors or runtime issues on /stok or /aset pages. ✅ Build stable. Main agent's fixes verified working correctly. Frontend testing complete - all critical functionality PASS."

@@ -86,13 +86,18 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: #38bdf8
 .page-title { position: relative; letter-spacing: -0.035em; font-weight: 700; color: #0f172a; }
 .page-title::after { content: ""; display: block; width: 2.5rem; height: 3px; border-radius: 999px; margin-top: 0.45rem; background: linear-gradient(90deg, #0284c7, #22d3ee); }
 .page-subtitle { color: #64748b; }
-.card, div.bg-white.rounded-xl, div.bg-white.rounded-lg { border-color: rgba(148, 163, 184, 0.2); box-shadow: 0 8px 28px rgba(15, 23, 42, 0.045); transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease; }
+.card, div.bg-white.rounded-xl, div.bg-white.rounded-lg { border-color: rgba(148, 163, 184, 0.2); box-shadow: 0 8px 28px rgba(15, 23, 42, 0.045); transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease; animation: cardIn 520ms cubic-bezier(.22,1,.36,1) both; }
 .card:hover, div.bg-white.rounded-xl:hover, div.bg-white.rounded-lg:hover { transform: translateY(-3px); border-color: rgba(14, 165, 233, 0.22); box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08); }
+.mini-bars { display: flex; align-items: end; gap: 0.4rem; height: 5.5rem; padding: 0.5rem 0.15rem 0; }
+.mini-bar-column { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: end; gap: 0.25rem; color: #94a3b8; font: 0.6rem 'Geist Mono', monospace; }
+.mini-bar { width: 100%; max-width: 1.15rem; min-height: 0.35rem; border-radius: 0.5rem 0.5rem 0.2rem 0.2rem; transform-origin: bottom; animation: barGrow 700ms cubic-bezier(.22,1,.36,1) both; }
+@keyframes barGrow { from { opacity: 0; transform: scaleY(0.12); } to { opacity: 1; transform: scaleY(1); } }
 table thead { position: sticky; top: 0; z-index: 10; }
 tbody tr { transition: background-color 160ms ease, transform 160ms ease; }
 tbody tr:hover { background-color: rgba(224, 242, 254, 0.45) !important; }
 
 @keyframes pageHeaderIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .fade-up { animation: fadeUp 500ms cubic-bezier(.22,1,.36,1) both; }
 .skeleton { background: linear-gradient(90deg, rgba(226,232,240,0.7), rgba(248,250,252,0.95), rgba(226,232,240,0.7)); background-size: 200% 100%; animation: skeleton 1.2s linear infinite; }
@@ -108,6 +113,8 @@ tbody tr:hover { background-color: rgba(224, 242, 254, 0.45) !important; }
 .login-orb-two { width: 18rem; height: 18rem; left: 36%; bottom: -9rem; background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent 70%); }
 .login-kicker { display: inline-flex; align-items: center; gap: 0.45rem; width: fit-content; padding: 0.45rem 0.7rem; border: 1px solid rgba(103, 232, 249, 0.22); border-radius: 999px; background: rgba(8, 145, 178, 0.1); color: #a5f3fc; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .login-highlight { padding: 0.5rem 0.7rem; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 0.7rem; background: rgba(255,255,255,0.06); color: #cbd5e1; font-size: 0.72rem; }
+.login-visual h1 { animation: logoTitleIn 900ms cubic-bezier(.22,1,.36,1) both; }
+@keyframes logoTitleIn { from { opacity: 0; letter-spacing: 0.08em; transform: translateY(16px); filter: blur(8px); } to { opacity: 1; letter-spacing: -0.025em; transform: translateY(0); filter: blur(0); } }
 .login-form-side { background: radial-gradient(circle at 50% 30%, rgba(224, 242, 254, 0.72), transparent 28rem), #f8fafc; }
 .login-card { padding: 2.25rem; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 1.5rem; background: rgba(255, 255, 255, 0.88); box-shadow: 0 30px 80px rgba(15, 23, 42, 0.1), 0 2px 5px rgba(15, 23, 42, 0.04); backdrop-filter: blur(18px); }
 .login-input { height: 2.9rem; border-radius: 0.8rem; border-color: #dbe4ee; background: rgba(255,255,255,0.8); }

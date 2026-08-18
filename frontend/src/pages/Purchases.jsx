@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { ensureStoreLocation } from "@/lib/geofence";
 import { Plus, Trash2, ScanLine } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
@@ -20,9 +21,12 @@ export default function Purchases() {
   const [newProduct, setNewProduct] = useState({ name: "", brand: "", category: "Handphone", cost_price: 0, sell_price: 0 });
   const [supplier, setSupplier] = useState("umum");
   const [paid, setPaid] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [note, setNote] = useState("");
   const [items, setItems] = useState([]);
   const [unitModal, setUnitModal] = useState({ open: false, itemId: null });
   const [scanOpen, setScanOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = () => { setLoading(true); api.get("/purchases").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
   useEffect(() => { load(); api.get("/products").then(({ data }) => setProducts(data)); api.get("/suppliers").then(({ data }) => setSuppliers(data)); }, []);
@@ -34,6 +38,7 @@ export default function Purchases() {
   };
   const createProductInline = async () => {
     try {
+      await ensureStoreLocation();
       const { data } = await api.post("/products", newProduct);
       setProducts((p) => [data, ...p]);
       setCreateProductOpen(false);
@@ -76,23 +81,31 @@ export default function Purchases() {
 
   const save = async () => {
     if (items.length === 0) return toast.error("Tambah minimal 1 item");
-    const sup = suppliers.find((s) => s.id === supplier);
-    const payloadItems = items.map((it) => ({
-      product_id: it.product_id,
-      product_name: it.product_name,
-      qty: (it.units && it.units.length) ? it.units.length : Number(it.qty || 0),
-      cost_price: Number(it.cost_price || 0),
-      units: it.units || [],
-    }));
-    await api.post("/purchases", {
-      supplier_id: supplier === "umum" ? null : supplier,
-      supplier_name: sup?.name || "Umum",
-      items: payloadItems,
-      paid: Number(paid || 0),
-      payment_method: "cash",
-    });
-    toast.success("Pembelian tersimpan"); setOpen(false); setItems([]); setPaid(0); load();
-    api.get("/products").then(({ data }) => setProducts(data));
+    setSaving(true);
+    try {
+      await ensureStoreLocation();
+      const sup = suppliers.find((s) => s.id === supplier);
+      const payloadItems = items.map((it) => ({
+        product_id: it.product_id,
+        product_name: it.product_name,
+        qty: (it.units && it.units.length) ? it.units.length : Number(it.qty || 0),
+        cost_price: Number(it.cost_price || 0),
+        units: it.units || [],
+      }));
+      await api.post("/purchases", {
+        supplier_id: supplier === "umum" ? null : supplier,
+        supplier_name: sup?.name || "Umum",
+        items: payloadItems,
+        paid: Number(paid || 0),
+        payment_method: paymentMethod,
+        note,
+      });
+      toast.success("Pembelian tersimpan dan stok diperbarui");
+      setOpen(false); setItems([]); setPaid(0); setPaymentMethod("cash"); setNote(""); load();
+      api.get("/products").then(({ data }) => setProducts(data));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e?.message || "Gagal menyimpan pembelian");
+    } finally { setSaving(false); }
   };
 
   return (
@@ -170,14 +183,18 @@ export default function Purchases() {
               ))}
             </div>
 
-            <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-              <div className="font-mono-num text-lg font-semibold">Total: {fmtIDR(total)}</div>
-              <div className="flex items-center gap-2"><Label className="text-xs text-slate-500">Bayar</Label><Input type="number" value={paid} onChange={(e) => setPaid(e.target.value)} className="w-32 h-9" /></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-200">
+              <div className="font-mono-num text-lg font-semibold md:col-span-2">Total: {fmtIDR(total)}</div>
+              <div><Label className="text-xs text-slate-500">Bayar</Label><Input type="number" value={paid} onChange={(e) => setPaid(e.target.value)} className="w-full h-9" /></div>
+              <div><Label className="text-xs text-slate-500">Metode Pembayaran</Label><Select value={paymentMethod} onValueChange={setPaymentMethod}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="cash">Cash</SelectItem><SelectItem value="transfer_bank">Transfer Bank</SelectItem><SelectItem value="qris">QRIS</SelectItem><SelectItem value="edc">EDC / Kartu</SelectItem>
+              </SelectContent></Select></div>
+              <div className="md:col-span-2"><Label className="text-xs text-slate-500">Catatan Pembelian</Label><Input value={note} onChange={(e) => setNote(e.target.value)} className="mt-1" placeholder="Contoh: invoice dan garansi supplier" /></div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={save} className="bg-sky-600 hover:bg-sky-700" data-testid="purchase-save-btn">Simpan</Button>
+            <Button onClick={save} disabled={saving} className="bg-sky-600 hover:bg-sky-700" data-testid="purchase-save-btn">{saving ? "Menyimpan..." : "Simpan Pembelian"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -190,7 +207,7 @@ export default function Purchases() {
             {(items.find((it) => it.product_id === unitModal.itemId)?.units || []).map((u, idx) => (
               <div key={idx} className="flex items-center gap-2">
                 <Input placeholder="IMEI" value={u.imei} onChange={(e) => setUnit(unitModal.itemId, idx, 'imei', e.target.value)} />
-                <Input type="color" value={u.color || ''} onChange={(e) => setUnit(unitModal.itemId, idx, 'color', e.target.value)} className="w-12 h-9" />
+                <Input placeholder="Warna" value={u.color || ""} onChange={(e) => setUnit(unitModal.itemId, idx, 'color', e.target.value)} />
                 <Button variant="outline" onClick={() => removeUnit(unitModal.itemId, idx)}>Hapus</Button>
               </div>
             ))}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { ensureStoreLocation } from "@/lib/geofence";
 import { LogIn, LogOut, Coffee, CupSoda, CalendarOff } from "lucide-react";
 
 const KIND_LABEL = { in: "Masuk", out: "Keluar", break_start: "Mulai Istirahat", break_end: "Selesai Istirahat", libur: "Libur" };
@@ -33,7 +34,7 @@ export default function Attendance() {
         setRows(data || []);
       } else {
         const { data } = await api.get("/attendance", { params: { start, end } });
-          <PageHeader title="Absensi Staf" subtitle="Catat kehadiran, istirahat & libur karyawan (WIB)" />
+        setRows(data || []);
       }
     } catch (e) { }
     finally { setLoading(false); }
@@ -42,8 +43,14 @@ export default function Attendance() {
 
   const record = async (kind) => {
     if (!sel) return toast.error("Pilih karyawan");
-    await api.post("/attendance", { staff_id: sel, kind, shift });
-    toast.success(`${KIND_LABEL[kind]} tercatat`); load();
+    try {
+      await ensureStoreLocation();
+      await api.post("/attendance", { staff_id: sel, kind, shift });
+      toast.success(`${KIND_LABEL[kind]} tercatat`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e?.message || "Gagal mencatat absensi");
+    }
   };
 
   const BTN = [

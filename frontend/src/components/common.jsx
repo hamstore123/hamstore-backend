@@ -10,6 +10,21 @@ export const PageHeader = ({ title, subtitle, children }) => (
   </div>
 );
 
+export const MiniBars = ({ values = [], color = "bg-sky-500", label = "Tren" }) => {
+  const max = Math.max(...values.map((value) => Number(value) || 0), 1);
+  return (
+    <div className="mini-bars" aria-label={label}>
+      {values.length === 0 ? <div className="text-xs text-slate-400 py-5">Belum ada data grafik</div> : values.map((value, index) => (
+        <div key={`${value}-${index}`} className="mini-bar-column">
+          <div className={`mini-bar ${color}`} style={{ height: `${Math.max(8, ((Number(value) || 0) / max) * 100)}%` }} title={String(value)} />
+          <span>{index + 1}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+
 export const Loading = () => (
   <div className="flex items-center justify-center py-24 text-slate-400">
     <Loader2 className="w-6 h-6 animate-spin" />

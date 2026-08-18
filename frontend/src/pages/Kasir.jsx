@@ -22,6 +22,8 @@ export default function Kasir() {
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState("umum");
   const [discount, setDiscount] = useState(0);
+  const [tax, setTax] = useState(0);
+  const [adminFee, setAdminFee] = useState(0);
   const [paid, setPaid] = useState(0);
   const [method, setMethod] = useState("cash");
   const [tradeIn, setTradeIn] = useState(false);
@@ -47,7 +49,7 @@ export default function Kasir() {
 
   const subtotal = cart.reduce((s, i) => s + i.qty * i.price, 0);
   const tradeValue = tradeIn ? Number(ti.trade_value || 0) : 0;
-  const total = Math.max(0, subtotal - Number(discount || 0) - tradeValue);
+  const total = Math.max(0, subtotal - Number(discount || 0) + Number(tax || 0) + Number(adminFee || 0) - tradeValue);
 
   const checkout = async () => {
     if (cart.length === 0) return toast.error("Keranjang kosong");
@@ -58,12 +60,12 @@ export default function Kasir() {
         customer_id: customer === "umum" ? null : customer,
         customer_name: cust?.name || "Umum",
         items: cart.map(({ product_id, product_name, qty, price, cost_price }) => ({ product_id, product_name, qty, price, cost_price })),
-        discount: Number(discount || 0), tax: 0, paid: Number(paid || 0),
+        discount: Number(discount || 0), tax: Number(tax || 0), admin_fee: Number(adminFee || 0), paid: Number(paid || 0),
         payment_method: method, mode: tradeIn ? "tukar_tambah" : "jual",
         trade_in: tradeIn ? { ...ti, trade_value: Number(ti.trade_value || 0), cost_price: Number(ti.cost_price || 0) } : null,
       });
       toast.success(`Transaksi ${data.invoice} berhasil`);
-      setCart([]); setDiscount(0); setPaid(0); setTradeIn(false);
+      setCart([]); setDiscount(0); setTax(0); setAdminFee(0); setPaid(0); setTradeIn(false);
       setTi({ device_name: "", imei: "", condition: "", trade_value: 0, cost_price: 0 });
       loadProducts(q);
     } catch (e) {
@@ -185,6 +187,8 @@ export default function Kasir() {
 
             <div className="grid grid-cols-2 gap-2">
               <div><Label className="text-xs text-slate-500">Diskon</Label><Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} className="mt-1 h-9" data-testid="kasir-discount" /></div>
+              <div><Label className="text-xs text-slate-500">Pajak</Label><Input type="number" value={tax} onChange={(e) => setTax(e.target.value)} className="mt-1 h-9" placeholder="Nominal pajak" data-testid="kasir-tax" /></div>
+              <div><Label className="text-xs text-slate-500">Admin / Add-on</Label><Input type="number" value={adminFee} onChange={(e) => setAdminFee(e.target.value)} className="mt-1 h-9" placeholder="Biaya tambahan" data-testid="kasir-admin-fee" /></div>
               <div><Label className="text-xs text-slate-500">Bayar</Label><Input type="number" value={paid} onChange={(e) => setPaid(e.target.value)} className="mt-1 h-9" data-testid="kasir-paid" /></div>
             </div>
             <div>
@@ -193,8 +197,13 @@ export default function Kasir() {
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="transfer">Transfer</SelectItem>
-                  <SelectItem value="hutang">Hutang</SelectItem>
+                  <SelectItem value="transfer_bank">Transfer Bank</SelectItem>
+                  <SelectItem value="qris">QRIS</SelectItem>
+                  <SelectItem value="edc">EDC / Kartu</SelectItem>
+                  <SelectItem value="paylater_shopee">PayLater Shopee</SelectItem>
+                  <SelectItem value="paylater_kredivo">PayLater Kredivo</SelectItem>
+                  <SelectItem value="paylater_akulaku">PayLater Akulaku</SelectItem>
+                  <SelectItem value="hutang">Hutang / Piutang</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -202,6 +211,8 @@ export default function Kasir() {
             <div className="pt-2 border-t border-slate-200 space-y-1 font-mono-num">
               <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>{fmtIDR(subtotal)}</span></div>
               {tradeValue > 0 && <div className="flex justify-between text-amber-600"><span>Tukar Tambah</span><span>-{fmtIDR(tradeValue)}</span></div>}
+              {Number(tax) > 0 && <div className="flex justify-between text-violet-600"><span>Pajak</span><span>+{fmtIDR(tax)}</span></div>}
+              {Number(adminFee) > 0 && <div className="flex justify-between text-slate-500"><span>Admin / Add-on</span><span>+{fmtIDR(adminFee)}</span></div>}
               <div className="flex justify-between text-lg font-semibold text-slate-900"><span>Total</span><span>{fmtIDR(total)}</span></div>
               {Number(paid) > 0 && <div className="flex justify-between text-green-600"><span>Kembalian</span><span>{fmtIDR(Math.max(0, Number(paid) - total))}</span></div>}
             </div>

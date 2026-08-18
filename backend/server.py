@@ -260,8 +260,9 @@ class SaleIn(BaseModel):
     items: List[SaleItemIn]
     discount: float = 0
     tax: float = 0
+    admin_fee: float = 0
     paid: float = 0
-    payment_method: str = "cash"  # cash, transfer, hutang
+    payment_method: str = "cash"  # cash, transfer, paylater_shopee, paylater_kredivo, paylater_akulaku, qris, edc, hutang
     note: Optional[str] = ""
     mode: str = "jual"  # jual | tukar_tambah
     trade_in: Optional[TradeInIn] = None
@@ -273,6 +274,7 @@ class PurchaseItemIn(BaseModel):
     qty: int = 1
     cost_price: float = 0
     imeis: Optional[List[str]] = None
+    units: Optional[List[dict]] = None
     color: Optional[str] = None
     battery_health: Optional[str] = None
     condition: Optional[str] = None
@@ -341,13 +343,14 @@ class HpPriceIn(BaseModel):
 
 
 class PPOBIn(BaseModel):
-    kind: str  # pulsa, token_pln, paket_data, bpjs, pdam
+    kind: str  # pulsa, token_pln, paket_data, bpjs, pdam, transfer, tarik_tunai
     customer_number: str
     customer_name: Optional[str] = ""
     nominal: float
     price: float  # harga jual ke pelanggan
     cost: float  # harga modal
     payment_method: str = "cash"
+    description: Optional[str] = ""
 
 
 class ServicePriceIn(BaseModel):
@@ -410,6 +413,11 @@ class AssetIn(BaseModel):
     quantity: int = 1
     condition: Optional[str] = "Baik"  # Baik, Rusak, Butuh Servis
     acquired_date: Optional[str] = None
+    purchase_source: Optional[str] = ""
+    supplier_name: Optional[str] = ""
+    invoice_number: Optional[str] = ""
+    purchase_price: float = 0
+    warranty_until: Optional[str] = None
     value: float = 0
     location: Optional[str] = ""
     note: Optional[str] = ""
@@ -705,13 +713,13 @@ async def create_sale(body: SaleIn, user: dict = Depends(get_current_user)):
     subtotal = sum(i.qty * i.price for i in body.items)
     total_cost = sum(i.qty * i.cost_price for i in body.items)
     trade_value = body.trade_in.trade_value if (body.mode == "tukar_tambah" and body.trade_in) else 0
-    total = subtotal - body.discount + body.tax - trade_value
+    total = subtotal - body.discount + body.tax + body.admin_fee - trade_value
     profit = subtotal - total_cost - body.discount - trade_value
     invoice = f"INV-{datetime.now().strftime('%Y%m%d')}-{sid[:6].upper()}"
     doc = {
         "id": sid, "invoice": invoice, "customer_id": body.customer_id,
         "customer_name": body.customer_name, "items": [i.model_dump() for i in body.items],
-        "subtotal": subtotal, "discount": body.discount, "tax": body.tax,
+        "subtotal": subtotal, "discount": body.discount, "tax": body.tax, "admin_fee": body.admin_fee,
         "total": total, "total_cost": total_cost, "profit": profit,
         "paid": body.paid, "change": max(0, body.paid - total),
         "due": max(0, total - body.paid),
@@ -813,13 +821,13 @@ async def create_purchase(body: PurchaseIn, user: dict = Depends(get_current_use
         "date": now_iso(), "status": "paid" if body.paid >= subtotal else "hutang",
     }
     await db.purchases.insert_one(doc)
-    # Process each purchased item: support creating new products and per-unit IMEIs
+    # Process each purchased item: support creating new products and per-unit IMEIs/colors
     for item in body.items:
-        # determine qty based on imeis if provided
-        qty = item.qty
-        imeis = item.imeis or []
-        if imeis and len(imeis) != 0:
-            qty = len(imeis)
+        units = item.units or []
+        imeis = item.imeis or [u.get("imei", "") for u in units if u.get("imei")]
+        qty = len(units) or len(imeis) or item.qty
+        if units and not imeis:
+            imeis = [u.get("imei", "") for u in units]
 
         # if product_id missing but product_template provided, create product
         if not item.product_id and item.product_template:
@@ -839,13 +847,16 @@ async def create_purchase(body: PurchaseIn, user: dict = Depends(get_current_use
             await db.products.update_one({"id": product_id}, {"$inc": {"stock": qty}, "$set": {"cost_price": item.cost_price}})
             await _log_stock(product_id, item.product_name, qty, "purchase", invoice, user["id"])
 
-            # create inventory unit records for each IMEI (if provided)
-            for im in imeis:
+            # create inventory unit records for each IMEI/unit (if provided)
+            for idx, im in enumerate(imeis):
+                unit = units[idx] if idx < len(units) else {}
                 u = {
                     "id": new_id(), "product_id": product_id, "imei": im,
-                    "cost_price": item.cost_price, "color": item.color,
-                    "battery_health": item.battery_health, "condition": item.condition,
-                    "internet_type": item.internet_type, "device_status": item.device_status,
+                    "cost_price": item.cost_price, "color": unit.get("color") or item.color,
+                    "battery_health": unit.get("battery_health") or item.battery_health,
+                    "condition": unit.get("condition") or item.condition,
+                    "internet_type": unit.get("internet_type") or item.internet_type,
+                    "device_status": unit.get("device_status") or item.device_status,
                     "created_at": now_iso(), "status": "in_stock",
                 }
                 await db.inventory_units.insert_one(u)
