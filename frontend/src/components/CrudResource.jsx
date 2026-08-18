@@ -287,11 +287,11 @@ export default function CrudResource({
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh]">
-            <div className="flex flex-col" style={{ maxHeight: '70vh' }}>
-              <DialogHeader><DialogTitle>{editing ? "Edit" : "Tambah"} {title}</DialogTitle></DialogHeader>
-              <div className="overflow-auto flex-1" style={{ paddingBottom: 'calc(var(--save-footer-height) + 12px)' }}>
-                <div className="grid grid-cols-2 gap-4 py-2" style={{ maxHeight: '60vh' }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden p-0 flex flex-col">
+            <div className="flex flex-col min-h-0 flex-1">
+              <DialogHeader className="px-6 pt-6 pb-3 shrink-0"><DialogTitle>{editing ? "Edit" : "Tambah"} {title}</DialogTitle></DialogHeader>
+              <div className="overflow-y-auto flex-1 px-6">
+                <div className="grid grid-cols-2 gap-4 py-2">
                   {fields.map((f) => (
                     <div key={f.name} className={f.full ? "col-span-2" : "col-span-1"}>
                       <Label className="text-xs text-slate-500">{f.label}{f.required && " *"}</Label>

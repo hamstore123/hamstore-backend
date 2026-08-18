@@ -34,8 +34,8 @@
 /* Card util uses tokens */
 .card { border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: var(--card-shadow); border: 1px solid rgba(15,23,42,0.04); }
 
-/* Sticky save footer that respects safe area and is visible on mobile */
-.save-footer{position:sticky;bottom:0;z-index:60;height:var(--save-footer-height);background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.95));backdrop-filter:blur(6px);padding:calc(var(--sp-2));display:flex;align-items:center;justify-content:flex-end;border-top:1px solid rgba(15,23,42,0.04);padding-left:calc(var(--sp-4));padding-right:calc(var(--sp-4));padding-bottom:calc(env(safe-area-inset-bottom, 0) + var(--sp-2));}
+/* Contained dialog footer: never overlays the scrollable form on desktop or mobile */
+.save-footer{position:relative;flex-shrink:0;min-height:var(--save-footer-height);height:auto;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);padding:var(--sp-3) var(--sp-6) calc(env(safe-area-inset-bottom, 0) + var(--sp-3));display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-2);border-top:1px solid rgba(15,23,42,0.08);box-shadow:0 -8px 20px rgba(15,23,42,0.04);}
 
 @media(min-width:768px){
   .page-title{font-size:var(--type-heading-2)}

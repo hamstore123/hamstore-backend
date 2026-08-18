@@ -43,6 +43,13 @@ Continue an existing Toko HP app (FastAPI + MongoDB Atlas + React). Backend sour
 - Log Aktivitas Karyawan (owner): jejak penjualan, tambah produk, buka/tutup shift.
 - Staff test account: staf@tokohp.com / staf123.
 
+
+## Implemented (2026-07, animated retail pass)
+- Login visual composition rebuilt with animated operation-console preview cards; email input intentionally blank placeholder.
+- Explicit Framer Motion entrance/hover animations on dashboard KPI cards, sales history, PPOB, stock, reports, plus animated chart/panel accents.
+- Purchase flow: quick supplier and quick product dialogs, supplier/product/unit fields, IMEI and text color per unit, automatic inventory linkage.
+- CRUD dialog save footer contained below scrollable body for desktop/mobile; stock-opname geofence feedback and asset purchase fields completed.
+
 ## Deferred (belum dikerjakan — tahap berikutnya)
 - Cetak Label Niimbot 50x30mm (QR/barcode IMEI, download gambar)
 - Booking & DP Terpadu (status Reserved, format Keep WA, pelunasan)

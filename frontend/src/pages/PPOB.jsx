@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import api, { fmtIDR, fmtDate } from "@/lib/api";
 import { PageHeader, Loading, Empty } from "@/components/common";
 import { Button } from "@/components/ui/button";
@@ -46,14 +47,14 @@ export default function PPOB() {
         <Button onClick={() => setOpen(true)} className="bg-sky-600 hover:bg-sky-700" data-testid="ppob-add-btn"><Plus className="w-4 h-4 mr-1.5" /> Transaksi Baru</Button>
       </PageHeader>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 max-w-xl">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-testid="ppob-total-omset">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} whileHover={{ y: -6 }} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-testid="ppob-total-omset">
           <div className="text-xs uppercase tracking-wide font-medium text-slate-500">Total Omset PPOB</div>
           <div className="text-2xl font-semibold font-mono-num text-sky-700 mt-1">{fmtIDR(totalOmset)}</div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-testid="ppob-total-laba">
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} whileHover={{ y: -6 }} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-testid="ppob-total-laba">
           <div className="text-xs uppercase tracking-wide font-medium text-slate-500">Total Laba PPOB</div>
           <div className="text-2xl font-semibold font-mono-num text-green-600 mt-1">{fmtIDR(totalLaba)}</div>
-        </div>
+        </motion.div>
       </div>
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="p-3">

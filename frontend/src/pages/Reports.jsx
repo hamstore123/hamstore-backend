@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import api, { fmtIDR } from "@/lib/api";
 import { PageHeader } from "@/components/common";
 import { Button } from "@/components/ui/button";
@@ -10,8 +11,8 @@ import { ShoppingCart, Zap, Wrench, TrendingUp, Receipt, Wallet } from "lucide-r
 const today = () => new Date().toISOString().slice(0, 10);
 const monthStart = () => new Date().toISOString().slice(0, 8) + "01";
 
-const OmsetCard = ({ icon: Icon, label, omset, laba, tone }) => (
-  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+const OmsetCard = ({ icon: Icon, label, omset, laba, tone, delay = 0 }) => (
+  <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.5 }} whileHover={{ y: -6 }} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
     <div className="flex items-center gap-2 mb-3">
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tone}`}><Icon className="w-4 h-4" /></div>
       <span className="font-medium text-slate-800">{label}</span>
@@ -20,7 +21,7 @@ const OmsetCard = ({ icon: Icon, label, omset, laba, tone }) => (
       <div className="flex justify-between"><span className="text-slate-500">Omset</span><span className="font-mono-num font-semibold text-slate-800">{fmtIDR(omset)}</span></div>
       {laba != null && <div className="flex justify-between"><span className="text-slate-500">Laba</span><span className="font-mono-num font-semibold text-green-600">{fmtIDR(laba)}</span></div>}
     </div>
-  </div>
+  </motion.div>
 );
 
 const LineRow = ({ l, v, tone = "text-slate-700", bold }) => (
@@ -60,9 +61,9 @@ export default function Reports() {
               <div className="flex items-center gap-2 mb-2"><Wallet className="w-5 h-5" /><span className="font-medium">Total Omset</span></div>
               <div className="text-2xl font-semibold font-mono-num" data-testid="report-total-omset">{fmtIDR(r.total_omset)}</div>
             </div>
-            <OmsetCard icon={ShoppingCart} label="Penjualan HP" omset={r.sales_revenue} laba={r.sales_profit} tone="bg-sky-50 text-sky-600" />
-            <OmsetCard icon={Zap} label="PPOB" omset={r.ppob_revenue} laba={r.ppob_profit} tone="bg-violet-50 text-violet-600" />
-            <OmsetCard icon={Wrench} label="Service" omset={r.service_revenue} laba={r.service_profit} tone="bg-amber-50 text-amber-600" />
+            <OmsetCard delay={0.12} icon={ShoppingCart} label="Penjualan HP" omset={r.sales_revenue} laba={r.sales_profit} tone="bg-sky-50 text-sky-600" />
+            <OmsetCard delay={0.2} icon={Zap} label="PPOB" omset={r.ppob_revenue} laba={r.ppob_profit} tone="bg-violet-50 text-violet-600" />
+            <OmsetCard delay={0.28} icon={Wrench} label="Service" omset={r.service_revenue} laba={r.service_profit} tone="bg-amber-50 text-amber-600" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

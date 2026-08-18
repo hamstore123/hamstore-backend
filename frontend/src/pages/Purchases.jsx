@@ -20,6 +20,9 @@ export default function Purchases() {
   const [createProductOpen, setCreateProductOpen] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: "", brand: "", category: "Handphone", cost_price: 0, sell_price: 0 });
   const [supplier, setSupplier] = useState("umum");
+  const [supplierQuickOpen, setSupplierQuickOpen] = useState(false);
+  const [supplierForm, setSupplierForm] = useState({ name: "", phone: "", address: "" });
+  const [supplierSaving, setSupplierSaving] = useState(false);
   const [paid, setPaid] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [note, setNote] = useState("");
@@ -36,6 +39,21 @@ export default function Purchases() {
     if (items.find((i) => i.product_id === pid)) return;
     setItems([...items, { product_id: p.id, product_name: p.name, qty: 1, cost_price: p.cost_price, units: [{ imei: "", color: "" }] }]);
   };
+  const createSupplierQuick = async () => {
+    if (!supplierForm.name.trim()) return toast.error("Nama supplier wajib");
+    setSupplierSaving(true);
+    try {
+      const { data } = await api.post("/suppliers", supplierForm);
+      setSuppliers((current) => [data, ...current]);
+      setSupplier(data.id);
+      setSupplierQuickOpen(false);
+      setSupplierForm({ name: "", phone: "", address: "" });
+      toast.success("Supplier ditambahkan");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Gagal menambahkan supplier");
+    } finally { setSupplierSaving(false); }
+  };
+
   const createProductInline = async () => {
     try {
       await ensureStoreLocation();
@@ -142,13 +160,16 @@ export default function Purchases() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-slate-500">Supplier</Label>
-                <Select value={supplier} onValueChange={setSupplier}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="umum">Umum</SelectItem>
-                    {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="mt-1 flex gap-2">
+                  <Select value={supplier} onValueChange={setSupplier}>
+                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="umum">Umum</SelectItem>
+                      {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" onClick={() => setSupplierQuickOpen(true)} className="shrink-0">+ Supplier</Button>
+                </div>
               </div>
               <div>
                 <Label className="text-xs text-slate-500">Tambah Produk</Label>
@@ -196,6 +217,31 @@ export default function Purchases() {
             <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
             <Button onClick={save} disabled={saving} className="bg-sky-600 hover:bg-sky-700" data-testid="purchase-save-btn">{saving ? "Menyimpan..." : "Simpan Pembelian"}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={supplierQuickOpen} onOpenChange={setSupplierQuickOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Supplier Baru</DialogTitle></DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div><Label className="text-xs text-slate-500">Nama Supplier *</Label><Input value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })} className="mt-1" autoFocus /></div>
+            <div><Label className="text-xs text-slate-500">Telepon</Label><Input value={supplierForm.phone} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })} className="mt-1" /></div>
+            <div><Label className="text-xs text-slate-500">Alamat</Label><Input value={supplierForm.address} onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })} className="mt-1" /></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setSupplierQuickOpen(false)}>Batal</Button><Button onClick={createSupplierQuick} disabled={supplierSaving}>{supplierSaving ? "Menyimpan..." : "Simpan Supplier"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createProductOpen} onOpenChange={setCreateProductOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Produk Baru untuk Pembelian</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="col-span-2"><Label className="text-xs text-slate-500">Nama Produk *</Label><Input value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} className="mt-1" autoFocus placeholder="Contoh: iPhone 13 128 GB" /></div>
+            <div><Label className="text-xs text-slate-500">Brand</Label><Input value={newProduct.brand} onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })} className="mt-1" /></div>
+            <div><Label className="text-xs text-slate-500">Harga Modal</Label><Input type="number" value={newProduct.cost_price} onChange={(e) => setNewProduct({ ...newProduct, cost_price: e.target.value })} className="mt-1" /></div>
+            <div className="col-span-2"><Label className="text-xs text-slate-500">Harga Jual</Label><Input type="number" value={newProduct.sell_price} onChange={(e) => setNewProduct({ ...newProduct, sell_price: e.target.value })} className="mt-1" /></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setCreateProductOpen(false)}>Batal</Button><Button onClick={createProductInline} disabled={!newProduct.name.trim()} data-testid="purchase-create-product-save">Simpan & Tambahkan</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

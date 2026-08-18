@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import api, { fmtDate, fmtIDR } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { PageHeader, Loading, Empty } from "@/components/common";
@@ -9,14 +10,14 @@ import { toast } from "sonner";
 import { ensureStoreLocation } from "@/lib/geofence";
 import { ClipboardCheck, Boxes, Wallet, TrendingUp, Package, AlertTriangle } from "lucide-react";
 
-const Card = ({ icon: Icon, label, value, tone = "bg-slate-100 text-slate-600", grad }) => (
-  <div className={`rounded-xl border shadow-sm p-4 ${grad ? "text-white border-transparent " + grad : "bg-white border-slate-200"}`} data-testid={`stock-${label.toLowerCase().replace(/[^a-z]/g, "-")}`}>
+const Card = ({ icon: Icon, label, value, tone = "bg-slate-100 text-slate-600", grad, delay = 0 }) => (
+  <motion.div initial={{ opacity: 0, y: 16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay, duration: 0.5 }} whileHover={{ y: -6 }} className={`rounded-xl border shadow-sm p-4 ${grad ? "text-white border-transparent " + grad : "bg-white border-slate-200"}`} data-testid={`stock-${label.toLowerCase().replace(/[^a-z]/g, "-")}`}>
     <div className={`flex items-center gap-2 text-xs uppercase tracking-wide font-medium ${grad ? "opacity-90" : "text-slate-500"}`}>
       {!grad && <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${tone}`}><Icon className="w-4 h-4" /></span>}
       {grad && <Icon className="w-4 h-4" />} {label}
     </div>
     <div className={`text-xl font-semibold font-mono-num mt-2 ${grad ? "" : "text-slate-900"}`}>{value}</div>
-  </div>
+  </motion.div>
 );
 
 export default function Stock() {

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import api, { fmtIDR, fmtDate } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { PageHeader, Loading, Empty, MiniBars } from "@/components/common";
+import { PageHeader, Loading, Empty } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,19 +74,19 @@ export default function SalesHistory() {
             </Select>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} whileHover={{ y: -6 }} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
           <div className="flex items-center gap-2 text-xs uppercase text-slate-500 font-medium"><ShoppingCart className="w-4 h-4 text-sky-500" /> Total Transaksi</div>
           <div className="text-2xl font-semibold font-mono-num mt-1">{rows.length}</div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} whileHover={{ y: -6 }} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
           <div className="text-xs uppercase text-slate-500 font-medium">Total Omset</div>
           <div className="text-2xl font-semibold font-mono-num text-sky-700 mt-1">{fmtIDR(omset)}</div>
-        </div>
+        </motion.div>
         {isOwner && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-testid="sales-profit-card">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} whileHover={{ y: -6 }} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-testid="sales-profit-card">
             <div className="flex items-center gap-2 text-xs uppercase text-slate-500 font-medium"><TrendingUp className="w-4 h-4 text-green-500" /> Total Keuntungan</div>
             <div className="text-2xl font-semibold font-mono-num text-green-600 mt-1">{fmtIDR(profit)}</div>
-          </div>
+          </motion.div>
         )}
       </div>
 
