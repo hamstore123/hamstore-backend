@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Ban } from "lucide-react";
 
 const NEXT = { antre: "diproses", diproses: "selesai", selesai: "diambil" };
 
@@ -19,6 +19,9 @@ export default function Services() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({});
   const [filter, setFilter] = useState("");
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelNote, setCancelNote] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -49,6 +52,18 @@ export default function Services() {
     toast.success(`Status → ${next}`); load();
   };
 
+  const cancelService = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      await api.post(`/services/${cancelTarget.id}/cancel`, { note: cancelNote });
+      toast.success("Service dibatalkan");
+      setCancelTarget(null); setCancelNote(""); load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Gagal membatalkan service");
+    } finally { setCancelling(false); }
+  };
+
   return (
     <div>
       <PageHeader title="Data Service" subtitle="Kelola order service / reparasi">
@@ -58,7 +73,8 @@ export default function Services() {
       </PageHeader>
 
       <div className="flex gap-2 mb-4">
-        {["", "antre", "diproses", "selesai", "diambil"].map((s) => (
+
+        {["", "antre", "diproses", "selesai", "diambil", "batal"].map((s) => (
           <button key={s} onClick={() => setFilter(s)} className={`px-3 py-1.5 rounded-md text-sm capitalize ${filter === s ? "bg-sky-600 text-white" : "bg-white border border-slate-200 text-slate-600"}`}>
             {s || "Semua"}
           </button>
@@ -88,11 +104,10 @@ export default function Services() {
                   <td className="px-4 py-3 font-mono-num text-right text-amber-600">{fmtIDR(r.remaining)}</td>
                   <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                   <td className="px-4 py-3">
-                    {NEXT[r.status] && (
-                      <Button size="sm" variant="outline" onClick={() => advance(r)} data-testid={`advance-${r.id}`} className="text-xs">
-                        → {NEXT[r.status]}
-                      </Button>
-                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {NEXT[r.status] && <Button size="sm" variant="outline" onClick={() => advance(r)} data-testid={`advance-${r.id}`} className="text-xs">→ {NEXT[r.status]}</Button>}
+                      {r.status !== "batal" && <Button size="sm" variant="outline" onClick={() => { setCancelTarget(r); setCancelNote(""); }} data-testid={`cancel-service-${r.id}`} className="text-xs text-red-700 border-red-200 hover:bg-red-50"><Ban className="w-3.5 h-3.5 mr-1" /> Batalkan</Button>}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -128,6 +143,17 @@ export default function Services() {
             <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
             <Button onClick={create} className="bg-sky-600 hover:bg-sky-700" data-testid="service-save-btn">Simpan</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!cancelTarget} onOpenChange={(open) => { if (!open) { setCancelTarget(null); setCancelNote(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Batalkan Service?</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-slate-600">Service <b>{cancelTarget?.invoice}</b> akan berubah menjadi Dibatalkan.</p>
+            <div><Label className="text-xs text-slate-500">Alasan (opsional)</Label><Input value={cancelNote} onChange={(e) => setCancelNote(e.target.value)} className="mt-1" placeholder="Contoh: pelanggan tidak jadi service" /></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setCancelTarget(null)}>Tidak</Button><Button onClick={cancelService} disabled={cancelling} className="bg-red-600 hover:bg-red-700" data-testid="confirm-cancel-service">{cancelling ? "Membatalkan..." : "Ya, Batalkan"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

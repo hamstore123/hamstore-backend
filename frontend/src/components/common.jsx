@@ -55,6 +55,7 @@ const STATUS = {
   selesai: "bg-green-100 text-green-800 border-green-200",
   diambil: "bg-slate-100 text-slate-700 border-slate-200",
   batal: "bg-red-100 text-red-700 border-red-200",
+  dibatalkan: "bg-red-100 text-red-700 border-red-200",
   todo: "bg-slate-100 text-slate-700 border-slate-200",
   in_progress: "bg-blue-100 text-blue-800 border-blue-200",
   done: "bg-green-100 text-green-800 border-green-200",

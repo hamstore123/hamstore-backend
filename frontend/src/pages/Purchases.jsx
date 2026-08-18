@@ -29,6 +29,7 @@ export default function Purchases() {
   const [items, setItems] = useState([]);
   const [unitModal, setUnitModal] = useState({ open: false, itemId: null });
   const [scanOpen, setScanOpen] = useState(false);
+  const [scanTarget, setScanTarget] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = () => { setLoading(true); api.get("/purchases").then(({ data }) => setRows(data)).finally(() => setLoading(false)); };
@@ -37,7 +38,7 @@ export default function Purchases() {
   const addItem = (pid) => {
     const p = products.find((x) => x.id === pid); if (!p) return;
     if (items.find((i) => i.product_id === pid)) return;
-    setItems([...items, { product_id: p.id, product_name: p.name, qty: 1, cost_price: p.cost_price, units: [{ imei: "", color: "" }] }]);
+    setItems([...items, { product_id: p.id, product_name: p.name, qty: 1, cost_price: p.cost_price, units: [{ imei: "", color: "", battery_health: "", condition: "", internet_type: "", device_status: "" }] }]);
   };
   const createSupplierQuick = async () => {
     if (!supplierForm.name.trim()) return toast.error("Nama supplier wajib");
@@ -61,7 +62,7 @@ export default function Purchases() {
       setProducts((p) => [data, ...p]);
       setCreateProductOpen(false);
       // add as item
-      setItems((it) => [{ product_id: data.id, product_name: data.name, qty: 1, cost_price: data.cost_price }, ...it]);
+      setItems((it) => [{ product_id: data.id, product_name: data.name, qty: 1, cost_price: data.cost_price, units: [{ imei: "", color: "", battery_health: "", condition: "", internet_type: "", device_status: "" }] }, ...it]);
       setNewProduct({ name: "", brand: "", category: "Handphone", cost_price: 0, sell_price: 0 });
       toast.success("Produk dibuat dan ditambahkan ke pembelian");
     } catch (e) { toast.error("Gagal membuat produk"); }
@@ -90,6 +91,12 @@ export default function Purchases() {
 
   const scanAdd = async (code) => {
     setScanOpen(false);
+    if (scanTarget) {
+      setUnit(scanTarget.itemId, scanTarget.index, "imei", code);
+      setScanTarget(null);
+      toast.success("IMEI berhasil dipindai");
+      return;
+    }
     try {
       const { data } = await api.get("/products", { params: { q: code } });
       if (data && data.length) { addItem(data[0].id); toast.success(`Produk ditemukan: ${data[0].name}`); }
@@ -181,7 +188,7 @@ export default function Purchases() {
                     </Select>
                   </div>
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" className="shrink-0" onClick={() => setScanOpen(true)} data-testid="purchase-scan-btn">
+                    <Button type="button" variant="outline" className="shrink-0" onClick={() => { setScanTarget(null); setScanOpen(true); }} data-testid="purchase-scan-btn">
                       <ScanLine className="w-4 h-4" />
                     </Button>
                     <Button type="button" variant="outline" onClick={() => setCreateProductOpen(true)}>Buat Produk Baru</Button>
@@ -251,10 +258,13 @@ export default function Purchases() {
           <DialogHeader><DialogTitle>Kelola Unit</DialogTitle></DialogHeader>
           <div className="space-y-2 max-h-60 overflow-y-auto py-2">
             {(items.find((it) => it.product_id === unitModal.itemId)?.units || []).map((u, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <Input placeholder="IMEI" value={u.imei} onChange={(e) => setUnit(unitModal.itemId, idx, 'imei', e.target.value)} />
+              <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-xl border border-slate-200 p-3 bg-slate-50/70">
+                <div className="flex gap-2 md:col-span-2"><Input placeholder="IMEI" value={u.imei} onChange={(e) => setUnit(unitModal.itemId, idx, 'imei', e.target.value)} /><Button type="button" variant="outline" onClick={() => { setScanTarget({ itemId: unitModal.itemId, index: idx }); setScanOpen(true); }} title="Scan IMEI"><ScanLine className="w-4 h-4" /></Button><Button type="button" variant="outline" onClick={() => removeUnit(unitModal.itemId, idx)}>Hapus</Button></div>
                 <Input placeholder="Warna" value={u.color || ""} onChange={(e) => setUnit(unitModal.itemId, idx, 'color', e.target.value)} />
-                <Button variant="outline" onClick={() => removeUnit(unitModal.itemId, idx)}>Hapus</Button>
+                <Input placeholder="Battery Health, contoh 98%" value={u.battery_health || ""} onChange={(e) => setUnit(unitModal.itemId, idx, 'battery_health', e.target.value)} />
+                <Input placeholder="Kondisi, contoh Like New" value={u.condition || ""} onChange={(e) => setUnit(unitModal.itemId, idx, 'condition', e.target.value)} />
+                <Input placeholder="Tipe Internet, contoh All Operator" value={u.internet_type || ""} onChange={(e) => setUnit(unitModal.itemId, idx, 'internet_type', e.target.value)} />
+                <Input placeholder="Status Perangkat, contoh iBox" value={u.device_status || ""} onChange={(e) => setUnit(unitModal.itemId, idx, 'device_status', e.target.value)} />
               </div>
             ))}
           </div>
@@ -264,7 +274,7 @@ export default function Purchases() {
           </div>
         </DialogContent>
       </Dialog>
-      <BarcodeScanner open={scanOpen} onClose={() => setScanOpen(false)} onScan={scanAdd} />
+      <BarcodeScanner open={scanOpen} onClose={() => { setScanOpen(false); setScanTarget(null); }} onScan={scanAdd} />
     </div>
   );
 }

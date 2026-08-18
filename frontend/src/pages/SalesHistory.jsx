@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { buildNota, openWhatsApp } from "@/lib/waNota";
-import { MessageCircle, ShoppingCart, TrendingUp } from "lucide-react";
+import { MessageCircle, ShoppingCart, TrendingUp, Ban } from "lucide-react";
 
 export default function SalesHistory() {
   const { isOwner } = useAuth();
@@ -24,6 +24,9 @@ export default function SalesHistory() {
   const [sortBy, setSortBy] = useState("date");
   const [sortDir, setSortDir] = useState(-1);
   const [page, setPage] = useState(1);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelNote, setCancelNote] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -33,8 +36,20 @@ export default function SalesHistory() {
   };
   useEffect(() => { load(); }, [q, start, end, sortBy, sortDir, page]);
 
-  const omset = rows.reduce((s, r) => s + (r.total || 0), 0);
-  const profit = rows.reduce((s, r) => s + (r.profit || 0), 0);
+  const omset = rows.reduce((s, r) => s + (r.status === "dibatalkan" ? 0 : (r.total || 0)), 0);
+  const profit = rows.reduce((s, r) => s + (r.status === "dibatalkan" ? 0 : (r.profit || 0)), 0);
+
+  const cancelSale = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      await api.post(`/sales/${cancelTarget.id}/cancel`, { note: cancelNote });
+      toast.success("Transaksi dibatalkan dan stok dikembalikan");
+      setCancelTarget(null); setCancelNote(""); load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Gagal membatalkan transaksi");
+    } finally { setCancelling(false); }
+  };
 
   const openNota = (sale) => {
     const first = (sale.items || [])[0] || {};
@@ -106,11 +121,14 @@ export default function SalesHistory() {
                   <td className="px-4 py-3 text-slate-600 max-w-[220px] truncate">{(r.items || []).map((i) => `${i.product_name} x${i.qty}`).join(", ")}</td>
                   <td className="px-4 py-3 font-mono-num">{fmtIDR(r.total)}</td>
                   {isOwner && <td className="px-4 py-3 font-mono-num text-green-600">{fmtIDR(r.profit)}</td>}
-                  <td className="px-4 py-3"><span className={`text-xs capitalize ${r.status === "paid" ? "text-green-600" : "text-amber-600"}`}>{r.payment_method} · {r.status}</span></td>
+                  <td className="px-4 py-3"><span className={`text-xs capitalize ${r.status === "dibatalkan" ? "text-red-600" : r.status === "paid" ? "text-green-600" : "text-amber-600"}`}>{r.status === "dibatalkan" ? "Dibatalkan" : `${r.payment_method} · ${r.status}`}</span></td>
                   <td className="px-4 py-3">
-                    <Button size="sm" variant="outline" className="text-xs text-green-700 border-green-200" onClick={() => openNota(r)} data-testid={`nota-${r.id}`}>
-                      <MessageCircle className="w-3.5 h-3.5 mr-1" /> Nota WA
-                    </Button>
+                    <div className="flex flex-wrap gap-1.5">
+                      {r.status !== "dibatalkan" && <Button size="sm" variant="outline" className="text-xs text-red-700 border-red-200 hover:bg-red-50" onClick={() => { setCancelTarget(r); setCancelNote(""); }} data-testid={`cancel-sale-${r.id}`}><Ban className="w-3.5 h-3.5 mr-1" /> Batalkan</Button>}
+                      <Button size="sm" variant="outline" className="text-xs text-green-700 border-green-200" onClick={() => openNota(r)} data-testid={`nota-${r.id}`}>
+                        <MessageCircle className="w-3.5 h-3.5 mr-1" /> Nota WA
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -139,6 +157,17 @@ export default function SalesHistory() {
             <Button variant="outline" onClick={() => setNota(null)}>Batal</Button>
             <Button onClick={sendNota} className="bg-green-600 hover:bg-green-700" data-testid="nota-send"><MessageCircle className="w-4 h-4 mr-1.5" /> Buka WhatsApp</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!cancelTarget} onOpenChange={(open) => { if (!open) { setCancelTarget(null); setCancelNote(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Batalkan Transaksi?</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-slate-600">Transaksi <b>{cancelTarget?.invoice}</b> akan berstatus Dibatalkan dan stok barang terjual dikembalikan otomatis.</p>
+            <div><Label className="text-xs text-slate-500">Alasan (opsional)</Label><Input value={cancelNote} onChange={(e) => setCancelNote(e.target.value)} className="mt-1" placeholder="Contoh: pelanggan membatalkan pesanan" /></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setCancelTarget(null)}>Tidak</Button><Button onClick={cancelSale} disabled={cancelling} className="bg-red-600 hover:bg-red-700" data-testid="confirm-cancel-sale">{cancelling ? "Membatalkan..." : "Ya, Batalkan"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

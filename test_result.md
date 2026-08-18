@@ -155,6 +155,34 @@
 ##       - working: true
 ##         agent: "testing"
 ##         comment: "Retail workflow enhancements testing complete (13/13 tests PASSED). ✓ Python syntax and imports verified. ✓ SaleIn model accepts admin_fee and payment_method (cash, transfer_bank, paylater_shopee, paylater_kredivo, paylater_akulaku, qris, edc). ✓ PPOBIn model accepts kind (pulsa, token_pln, paket_data, bpjs, pdam, transfer, tarik_tunai) and description field. ✓ PurchaseItemIn model has units field with IMEI/color support. ✓ Purchase endpoint correctly maps units to inventory_units collection (code inspection verified). ✓ AssetIn model has all required fields: purchase_source, supplier_name, invoice_number, purchase_price, warranty_until. ✓ Auth working: owner and staff login successful. ✓ RBAC working: staff can access sales/ppob, blocked from purchases. ✓ POST /api/sales accepts all 7 payment methods with admin_fee. ✓ POST /api/ppob accepts all 7 kinds with description. Backend logs show no errors. Note: Minimal test data created (7 sales + 7 PPOB transactions) to verify endpoint behavior - unavoidable for POST endpoint testing."
+##   - task: "Cancel sale/service with idempotent restock"
+##     implemented: true
+##     working: true
+##     file: "/app/backend/server.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "Added POST /api/sales/{sid}/cancel with one-time restock and POST /api/services/{sid}/cancel with Dibatalkan status; frontend buttons/dialogs added to Riwayat Penjualan and Data Service."
+##       - working: true
+##         agent: "testing"
+##         comment: "Cancel sale/service testing complete (26/26 tests PASSED). ✓ server.py compiles cleanly with no import errors. ✓ POST /api/sales/{sid}/cancel endpoint exists and functional. ✓ POST /api/services/{sid}/cancel endpoint exists and functional. ✓ CancelTransactionIn model accepts optional note parameter. ✓ cancel_sale: changes active transaction status to 'dibatalkan', saves cancellation metadata (cancelled_at, cancelled_by, cancelled_by_name, cancel_note), restocks items using $inc on products.stock, writes stock_movements with kind='sale_cancel', fully idempotent (second call returns already_cancelled=True with no double restock). ✓ cancel_service: changes status to 'batal', saves metadata (cancelled_at, cancelled_by, cancelled_by_name, cancel_note), appends to history array with status='batal', fully idempotent (second call returns already_cancelled=True), no stock changes (services don't affect inventory). ✓ PurchaseItemIn units field accepts metadata: IMEI, color, battery_health, condition, internet_type, device_status; endpoint maps to inventory_units collection (lines 887-899). ✓ Auth/RBAC regression: staff can access /api/services, /api/sales, /api/auth/me. All requirements verified. Note: 3 test transactions created (1 sale + 1 service + 1 purchase) for endpoint verification."
+##   - task: "Purchase unit metadata mapping"
+##     implemented: true
+##     working: true
+##     file: "/app/backend/server.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: false
+##     status_history:
+##       - working: NA
+##         agent: "main"
+##         comment: "PurchaseItemIn units metadata dapat berisi IMEI, color, battery_health, condition, internet_type, device_status; endpoint code memetakan metadata itu ke inventory_units dan qty unit."
+##       - working: true
+##         agent: "testing"
+##         comment: "Purchase units metadata verified as part of cancel sale/service testing. PurchaseItemIn model accepts units field with all required metadata fields (IMEI, color, battery_health, condition, internet_type, device_status). Purchase endpoint (lines 861-899) correctly maps units array to inventory_units collection, creating one document per unit with all metadata preserved. Qty is calculated from units array length. Test purchase with 2 units and full metadata accepted successfully."
 
 ## frontend:
 ##   - task: "Modern animated visual system and retail workflows"
@@ -194,9 +222,9 @@
 
 ## metadata:
 ##   created_by: "main_agent"
-##   version: "1.5"
-##   test_sequence: 5
-##   run_ui: true
+##   version: "1.6"
+##   test_sequence: 6
+##   run_ui: false
 ## test_plan:
 ##   current_focus:
 ##     - "CORS credentials allowlist - deployment env config"
@@ -221,6 +249,8 @@
 ##     message: "Retail workflow enhancements testing complete. ALL TESTS PASSED (13/13): ✓ Syntax/imports clean, ✓ SaleIn accepts admin_fee + 7 payment methods (cash, transfer_bank, paylater_shopee, paylater_kredivo, paylater_akulaku, qris, edc), ✓ PPOBIn accepts 7 kinds (pulsa, token_pln, paket_data, bpjs, pdam, transfer, tarik_tunai) + description, ✓ PurchaseItemIn has units field, ✓ Purchase endpoint maps units[{imei,color}] to inventory_units (verified via code inspection lines 826-862), ✓ AssetIn has purchase_source, supplier_name, invoice_number, purchase_price, warranty_until, ✓ Auth/RBAC working (owner+staff login, staff can access sales/ppob, blocked from purchases). Backend logs clean, no runtime errors. Note: 7 sales + 7 PPOB test transactions created during endpoint verification (minimal impact, unavoidable for POST testing). No data seeding/reset performed. CORS_ORIGINS='*' issue remains (separate task). All retail enhancements working correctly."
 ##   - agent: "testing"
 ##     message: "RETEST COMPLETE - Both previously failed frontend tests now PASS. ✅ Stock Opname geofence (1/2): Correctly shows toast 'Anda berada di luar jangkauan toko.' when mocked location is outside 500m radius, no POST /api/stock/opname made. ✅ Assets purchase fields (2/2): All 5 fields present in Add dialog and table: Dibeli Dari, Nama Supplier, Nomor Invoice, Harga Beli, Garansi Sampai - all functional and can be filled. ✅ No console errors or runtime issues on /stok or /aset pages. ✅ Build stable. Main agent's fixes verified working correctly. Frontend testing complete - all critical functionality PASS."
+##   - agent: "testing"
+##     message: "Backend testing complete for cancel sale/service and purchase units metadata (26/26 tests PASSED). ✅ POST /api/sales/{sid}/cancel: fully functional with idempotent restock - first call changes status to 'dibatalkan', restocks items with $inc, logs stock_movements with kind='sale_cancel', saves metadata (cancelled_at, cancelled_by, cancel_note); second call returns already_cancelled=True with no double restock. ✅ POST /api/services/{sid}/cancel: fully functional with idempotent behavior - first call changes status to 'batal', appends to history, saves metadata; second call returns already_cancelled=True; no stock changes (correct for services). ✅ CancelTransactionIn accepts optional note. ✅ PurchaseItemIn units field accepts all metadata (IMEI, color, battery_health, condition, internet_type, device_status) and endpoint maps to inventory_units. ✅ Auth/RBAC regression verified: staff can access /api/services, /api/sales, /api/auth/me. All review requirements met. Note: 3 test transactions created during testing."
 ##   - agent: "testing"
 ##     message: "CRITICAL BUG FIXED: Purchases.jsx had JavaScript syntax error causing red screen crash. Function createSupplierQuick was incorrectly nested inside createProductInline (scope error). Fixed and verified. Comprehensive visual regression testing complete (11/11 PASS): Login composition correct, email placeholder empty, preview cards present, all page animations working, payment methods correct (labels only), PPOB kinds complete, purchase quick buttons functional, unit modal has IMEI+text color fields, save footers positioned correctly desktop/mobile, stock opname geofence working. All user concerns RESOLVED. Minor: accessibility warnings (non-blocking)."
 ##   - agent: "main"

@@ -268,6 +268,10 @@ class SaleIn(BaseModel):
     trade_in: Optional[TradeInIn] = None
 
 
+class CancelTransactionIn(BaseModel):
+    note: Optional[str] = ""
+
+
 class PurchaseItemIn(BaseModel):
     product_id: Optional[str] = None
     product_name: Optional[str] = ""
@@ -794,9 +798,41 @@ async def list_sales(
 
     # Simple heuristic: if common pagination/filter params are not present, return legacy list for compatibility
     if page == 1 and limit == 100 and not start and not end and not q:
+
         return rows
     return {"page": page, "limit": limit, "items": rows}
 
+
+@api.post("/sales/{sid}/cancel")
+async def cancel_sale(sid: str, body: CancelTransactionIn, user: dict = Depends(get_current_user)):
+    sale = await db.sales.find_one({"id": sid}, {"_id": 0})
+    if not sale:
+        raise HTTPException(404, "Transaksi tidak ditemukan")
+    if sale.get("status") == "dibatalkan":
+        return {"ok": True, "already_cancelled": True, "status": "dibatalkan", "id": sid}
+
+    result = await db.sales.update_one(
+        {"id": sid, "status": {"$ne": "dibatalkan"}},
+        {"$set": {
+            "status": "dibatalkan",
+            "cancelled_at": now_iso(),
+            "cancelled_by": user.get("id"),
+            "cancelled_by_name": user.get("name"),
+            "cancel_note": body.note or "",
+        }},
+    )
+    if result.modified_count == 0:
+        return {"ok": True, "already_cancelled": True, "status": "dibatalkan", "id": sid}
+
+    for item in sale.get("items", []):
+        qty = int(item.get("qty") or 0)
+        if qty <= 0:
+            continue
+        await db.products.update_one({"id": item.get("product_id")}, {"$inc": {"stock": qty}})
+        await _log_stock(item.get("product_id"), item.get("product_name", ""), qty, "sale_cancel", sale.get("invoice", sid), user["id"])
+
+    await log_activity(user, "Batalkan Penjualan", f"{sale.get('invoice', sid)} · stok dikembalikan", "penjualan")
+    return {"ok": True, "already_cancelled": False, "status": "dibatalkan", "id": sid}
 
 @api.get("/sales/{sid}")
 async def get_sale(sid: str, user: dict = Depends(get_current_user)):
@@ -830,6 +866,7 @@ async def create_purchase(body: PurchaseIn, user: dict = Depends(get_current_use
             imeis = [u.get("imei", "") for u in units]
 
         # if product_id missing but product_template provided, create product
+
         if not item.product_id and item.product_template:
             pdoc = {**item.product_template}
             pdoc["id"] = new_id()
@@ -1371,6 +1408,7 @@ async def create_service(body: ServiceIn, user: dict = Depends(get_current_user)
     sid = new_id()
     total = (body.total_price or (body.service_price + body.sparepart_cost))
     doc = body.model_dump()
+
     doc.update({
         "id": sid,
         "invoice": f"SRV-{datetime.now().strftime('%Y%m%d')}-{sid[:6].upper()}",
@@ -1414,6 +1452,33 @@ async def list_tasks(assignee_id: Optional[str] = None, status: Optional[str] = 
     if assignee_id: q["assignee_id"] = assignee_id
     if status: q["status"] = status
     return await db.tasks.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
+
+@api.post("/services/{sid}/cancel")
+async def cancel_service(sid: str, body: CancelTransactionIn, user: dict = Depends(get_current_user)):
+    service = await db.services.find_one({"id": sid}, {"_id": 0})
+    if not service:
+        raise HTTPException(404, "Service tidak ditemukan")
+    if service.get("status") == "batal":
+        return {"ok": True, "already_cancelled": True, "status": "batal", "id": sid}
+
+    result = await db.services.update_one(
+        {"id": sid, "status": {"$ne": "batal"}},
+        {"$set": {
+            "status": "batal",
+            "cancelled_at": now_iso(),
+            "cancelled_by": user.get("id"),
+            "cancelled_by_name": user.get("name"),
+            "cancel_note": body.note or "",
+        }},
+    )
+    if result.modified_count == 0:
+        return {"ok": True, "already_cancelled": True, "status": "batal", "id": sid}
+
+    hist = service.get("history", []) + [{"status": "batal", "date": now_iso(), "note": body.note or "Dibatalkan", "by": user.get("name")}]
+    await db.services.update_one({"id": sid}, {"$set": {"history": hist}})
+    await log_activity(user, "Batalkan Service", f"{service.get('invoice', sid)} · status Dibatalkan", "service")
+    return {"ok": True, "already_cancelled": False, "status": "batal", "id": sid}
+
 
 
 @api.post("/tasks")
