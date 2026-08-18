@@ -21,3 +21,17 @@ root.render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+// Daftarkan service worker untuk PWA (biar app bisa di-install ke HP)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register(`${process.env.PUBLIC_URL}/service-worker.js`)
+      .then((registration) => {
+        console.log("Service Worker terdaftar:", registration.scope);
+      })
+      .catch((error) => {
+        console.log("Service Worker gagal daftar:", error);
+      });
+  });
+}
