@@ -1265,7 +1265,11 @@ async def dashboard_summary(user: dict = Depends(get_current_user)):
     month_start = datetime.now(timezone.utc).replace(day=1).strftime("%Y-%m-%d")
     
     async def sum_field(col, field, start):
-        pipeline = [{"$match": {"date": {"$gte": start}}}, {"$group": {"_id": None, "s": {"$sum": f"${field}"}}}]
+        # exclude cancelled sales from financial sums
+        if getattr(col, "name", "") == "sales":
+            pipeline = [{"$match": {"date": {"$gte": start}, "status": {"$ne": "dibatalkan"}}}, {"$group": {"_id": None, "s": {"$sum": f"${field}"}}}]
+        else:
+            pipeline = [{"$match": {"date": {"$gte": start}}}, {"$group": {"_id": None, "s": {"$sum": f"${field}"}}}]
         r = await col.aggregate(pipeline).to_list(1)
         return r[0]["s"] if r else 0
 
@@ -1275,7 +1279,8 @@ async def dashboard_summary(user: dict = Depends(get_current_user)):
     ppob_month = await sum_field(db.ppob, "profit", month_start)
     expense_month = await sum_field(db.expenses, "amount", month_start)
     
-    tx_today = await db.sales.count_documents({"date": {"$gte": today}})
+    # don't count cancelled transactions
+    tx_today = await db.sales.count_documents({"date": {"$gte": today}, "status": {"$ne": "dibatalkan"}})
     products_count = await db.products.count_documents({})
     customers_count = await db.customers.count_documents({})
     low_stock = await db.products.count_documents({"$expr": {"$lte": ["$stock", "$min_stock"]}})
@@ -1285,7 +1290,7 @@ async def dashboard_summary(user: dict = Depends(get_current_user)):
     # last 7 days sales
     from collections import defaultdict
     trend = defaultdict(float)
-    sales_recent = await db.sales.find({"date": {"$gte": (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()}}, {"_id": 0, "date": 1, "total": 1}).to_list(2000)
+    sales_recent = await db.sales.find({"date": {"$gte": (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()}, "status": {"$ne": "dibatalkan"}}, {"_id": 0, "date": 1, "total": 1}).to_list(2000)
     for s in sales_recent:
         d = s["date"][:10]
         trend[d] += s["total"]
@@ -1311,7 +1316,8 @@ async def dashboard_summary(user: dict = Depends(get_current_user)):
 
 @api.get("/reports/profit-loss")
 async def report_pl(start: str, end: str, user: dict = Depends(require_roles("owner"))):
-    sales = await db.sales.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
+    # exclude cancelled sales from financial reports
+    sales = await db.sales.find({"date": {"$gte": start, "$lte": end}, "status": {"$ne": "dibatalkan"}}, {"_id": 0}).to_list(5000)
     ppob = await db.ppob.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
     expenses = await db.expenses.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
     services = await db.services.find({"created_at": {"$gte": start, "$lte": end}}, {"_id": 0}).to_list(5000)
@@ -1354,10 +1360,14 @@ def _breakdown(items, key, field):
 
 @api.get("/reports/sales")
 async def report_sales(start: str, end: str, user: dict = Depends(get_current_user)):
-    sales = await db.sales.find({"date": {"$gte": start, "$lte": end}}, {"_id": 0}).sort("date", -1).to_list(5000)
+    # exclude cancelled sales from sales report totals and counts
+    sales = await db.sales.find({"date": {"$gte": start, "$lte": end}, "status": {"$ne": "dibatalkan"}}, {"_id": 0}).sort("date", -1).to_list(5000)
     total = sum(s.get("total", 0) for s in sales)
     profit = sum(s.get("profit", 0) for s in sales)
     return {"total": total, "profit": profit, "count": len(sales), "items": sales}
+
+
+
 
 
 @api.get("/reports/purchases")
